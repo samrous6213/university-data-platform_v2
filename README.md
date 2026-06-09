@@ -20,31 +20,43 @@
 4. Commit and push to GitHub
 
 ## Folder Structure
+
+<details>
+<summary>Click to expand folder structure</summary>
+
+```text
 university-data-platform_v2/
+.
 ├── dags/                           # ALL Airflow DAGs live here
 │   ├── common/                     # Shared code (you all import this)
 │   │   ├── __init__.py
 │   │   ├── spark_utils.py          # Standard Spark session builder
 │   │   └── minio_client.py         # Connection helper
-│   │
-│   ├── person_1_api_openalex.py    # DAG #1
-│   ├── person_2_web_um5.py         # DAG #2
-│   ├── person_3_doc_mit.py         # DAG #3
-│   ├── person_4_api_crossref.py    # DAG #4
-│   ├── person_5_web_uca.py         # DAG #5
-│   ├── person_6_web_data_gov.py    # DAG #6
-│   └── person_7_pdf_khan.py        # DAG #7
+│   ├── person_0_template.py        # Template for team members
+│   ├── sara_openalex.py            # Sara's DAG (API source)
+│   ├── person_2_um5.py             # Person 2 DAG (Web source)
+│   ├── person_3_mit.py             # Person 3 DAG (PDF source)
+│   ├── person_4_crossref.py        # Person 4 DAG (API source)
+│   ├── person_5_datagov.py         # Person 5 DAG (Web source)
+│   ├── person_6_uca.py             # Person 6 DAG (Web source)
+│   └── person_7_wiki.py            # Person 7 DAG (Wiki source)
 │
 ├── plugins/                        # Custom Airflow plugins/operators
 │   └── hudi_operators.py           # Custom operator to write to Hudi
 │
 ├── spark_jobs/                     # Standalone .py files for complex transforms
-│   └── transform_hudi.py           (Called by Airflow via SparkOperator)
+│   └── transform_hudi.py           # Called by Airflow via SparkOperator
 │
 ├── notebooks/                      # Dev exploration (keep out of DAGs)
+├── airflow_home/                   # Airflow configuration (gitignored)
+│
 ├── docker-compose.yml              # Airflow + MinIO + Postgres (Metastore)
-├── requirements.txt
-└── README.md
+├── requirements.txt                # Python dependencies
+├── .gitignore                      # Git ignore file
+└── README.md                       # This file
+```
+</details>
+
 ## Git Workflow
 
 1. Always pull before working: `git pull origin main`
