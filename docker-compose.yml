@@ -1,0 +1,143 @@
+version: '3.8'
+
+services:
+  # MinIO - Object Storage (Raw Zone)
+  minio:
+    image: minio/minio:latest
+    container_name: university-minio
+    ports:
+      - "9000:9000"   # API port
+      - "9001:9001"   # Console port
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - data-platform
+
+  # PostgreSQL - Metadata for Hive
+  postgres:
+    image: postgres:13
+    container_name: university-postgres
+    environment:
+      POSTGRES_DB: metastore
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hive
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - data-platform
+
+  # Airflow - Orchestration (using official image)
+  airflow-webserver:
+    image: apache/airflow:2.7.1-python3.9
+    container_name: university-airflow-webserver
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - _AIRFLOW_WWW_USER_USERNAME=admin
+      - _AIRFLOW_WWW_USER_PASSWORD=admin
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./airflow_logs:/opt/airflow/logs
+      - ./requirements.txt:/requirements.txt
+    networks:
+      - data-platform
+    command: >
+      bash -c "pip install -r /requirements.txt && airflow db init && airflow webserver"
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.1-python3.9
+    container_name: university-airflow-scheduler
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./airflow_logs:/opt/airflow/logs
+    networks:
+      - data-platform
+    depends_on:
+      - airflow-webserver
+    command: scheduler
+
+  # Metabase - BI Dashboard
+  metabase:
+    image: metabase/metabase:latest
+    container_name: university-metabase
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_HOST: postgres
+      MB_DB_PORT: 5432
+      MB_DB_USER: hive
+      MB_DB_PASS: hive
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - metabase_data:/metabase.db
+    networks:
+      - data-platform
+
+  # Elasticsearch - Search Engine
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: university-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - data-platform
+
+  # Kibana - Optional visualization for Elasticsearch
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: university-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - data-platform
+    profiles:
+      - optional  # Only start if explicitly requested
+
+networks:
+  data-platform:
+    driver: bridge
+
+volumes:
+  minio_data:
+  postgres_data:
+  metabase_data:
+  elasticsearch_data:
