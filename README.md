@@ -1,77 +1,107 @@
 # University Data Platform V2
 
-## Team Members (7 people)
+This repo contains an Airflow/Spark/MinIO/Hudi data platform with **7 parallel workspaces** (one per team member).
 
-| Person | Source | DAG File | Hudi Table |
-|--------|--------|----------|-------------|
-| P1 | API - OpenAlex | `dag_api_openalex.py` | faculty_profiles |
-| P2 | Web - UM5 | `dag_web_um5.py` | course_catalog |
-| P3 | PDF - MIT OCW | `dag_doc_mit.py` | course_catalog |
-| P4 | API - Crossref | `dag_api_crossref.py` | faculty_profiles |
-| P5 | Web - Data.gov.ma | `dag_web_datagov.py` | faculty_profiles |
-| P6 | Web - UCA | `dag_web_uca.py` | course_catalog |
-| P7 | Wiki - Mathematics | `dag_wiki_math.py` | course_catalog |
+At the root you will find the orchestration stack (Docker Compose) and helper scripts, and each workspace contains its own:
+- `dags/` (Airflow DAGs)
+- `data/raw/` and `data/processed/`
+- `notebooks/`
+- `spark_jobs/`
 
-## Setup Instructions
+---
 
-1. Clone this repo
-2. Each person copies `dags/person_0_template.py` to their own DAG file
-3. Edit the `SOURCE_NAME` and extraction logic
-4. Commit and push to GitHub
+## Tech Stack (via `docker-compose.yml`)
+- **MinIO** (object storage) at `http://localhost:9001`
+- **Airflow** (webserver/scheduler) at `http://localhost:8082`
+- **PostgreSQL** (metastore / dashboard storage)
+- **Metabase** at `http://localhost:3000`
+- **Elasticsearch** at `http://localhost:9200`
+- **Kibana** at `http://localhost:5601` (optional profile)
 
-## Folder Structure
+---
 
-<details>
-<summary>Click to expand folder structure</summary>
+## Services Setup
+
+### 1) Start everything
+```bash
+docker-compose up -d
+```
+
+### 2) Check services
+```bash
+./check_services.sh
+```
+
+### 3) Access UIs
+- MinIO Console: http://localhost:9001  (minioadmin/minioadmin)
+- Airflow UI:      http://localhost:8082 (admin/admin)
+- Metabase:       http://localhost:3000
+- Elasticsearch:  http://localhost:9200
+- Kibana (opt):   http://localhost:5601
+
+---
+
+## Repo Structure
 
 ```text
 university-data-platform_v2/
-.
-├── dags/                           # ALL Airflow DAGs live here
-│   ├── common/                     # Shared code (you all import this)
-│   │   ├── __init__.py
-│   │   ├── spark_utils.py          # Standard Spark session builder
-│   │   └── minio_client.py         # Connection helper
-│   ├── person_0_template.py        # Template for team members
-│   ├── person_1_openalex.py        # Person 1 DAG (API source)
-│   ├── person_2_um5.py             # Person 2 DAG (Web source)
-│   ├── person_3_mit.py             # Person 3 DAG (PDF source)
-│   ├── person_4_crossref.py        # Person 4 DAG (API source)
-│   ├── person_5_datagov.py         # Person 5 DAG (Web source)
-│   ├── person_6_uca.py             # Person 6 DAG (Web source)
-│   └── person_7_wiki.py            # Person 7 DAG (Wiki source)
-│
-├── plugins/                        # Custom Airflow plugins/operators
-│   └── hudi_operators.py           # Custom operator to write to Hudi
-│
-├── spark_jobs/                     # Standalone .py files for complex transforms
-│   └── transform_hudi.py           # Called by Airflow via SparkOperator
-│
-├── notebooks/                      # Dev exploration (keep out of DAGs)
-├── airflow_home/                   # Airflow configuration (gitignored)
-│
-├── docker-compose.yml              # Airflow + MinIO + Postgres (Metastore)
-├── requirements.txt                # Python dependencies
-├── .gitignore                      # Git ignore file
-└── README.md                       # This file
+├── docker-compose.yml
+├── check_services.sh
+├── README.md
+├── TEAM_WORK_PLAN.md
+├── .gitignore
+├── ayoub_workspace/
+│   ├── shared_library.py
+│   ├── dags/
+│   ├── data/raw/
+│   ├── data/processed/
+│   ├── notebooks/
+│   └── spark_jobs/
+├── chaimaa_workspace/
+│   └── ... (same structure)
+├── fahd_workspace/
+│   └── ... (same structure)
+├── hiba_workspace/
+│   └── ... (same structure)
+├── nezha_workspace/
+│   └── ... (same structure)
+├── safaa_workspace/
+│   └── ... (same structure)
+└── sara_workspace/
+    └── ... (same structure)
 ```
-</details>
+
+---
+
+## Airflow DAGs
+Each workspace defines its own DAG(s) under `*/workspace/dags/`.
+
+These DAGs are expected to use the shared utilities found in the same workspace via `shared_library.py`.
+
+---
+
+## Shared Utilities
+Inside each workspace there is a `shared_library.py` containing common helpers, for example:
+- MinIO client creation (`get_minio_client`)
+- Spark session builder with Hudi extensions (`get_spark_session`)
+- Standardized record formatting and MinIO upload helpers
+
+---
 
 ## Git Workflow
+1. Pull before working: `git pull origin main`
+2. You don't need to create your branch: already created 
+3. Modify your own workspace only
+4. Push and open PR: `git push origin <name>-update`
 
-1. Always pull before working: `git pull origin main`
-2. Create your own branch: `git checkout -b person-X-source`
-3. Work on your DAG only
-4. Push and create a Pull Request: `git push origin person-X-source`
+---
 
-## Quick Commands
-
+## Helpful Commands
 ```bash
-# Check your work
-git status
-git log --oneline -5
+# Docker logs
+docker-compose logs -f airflow-webserver
 
-# Commit your changes
-git add dags/your_dag_file.py
-git commit -m "P1: Added OpenAlex API ingestion DAG"
-git push origin your-branch-name
+# List running containers
+docker-compose ps
+```
+
