@@ -1,3 +1,4 @@
+#python
 pycache/
 *.py[cod]
 *$py.class
@@ -7,19 +8,22 @@ env/
 venv/
 ENV/
 .venv/
+#Ide 
 .vscode/
 .idea/
 *.swp
 *.swo
+#os
 .DS_Store
 Thumbs.db
+#data files
 *.json
 *.csv
 *.parquet
 *.hudi
-
-
+#logs
 *.log
 logs/
+#local configuration 
 .env
 docker-compose.override.yml

@@ -1,3 +1,4 @@
+#template for everyone to copy and modify for their own source. Just change the SOURCE_NAME and implement the extraction logic in the extract_and_save_to_minio function. The Spark job will be the same for everyone, just make sure to pass the correct source_path from MinIO.
 from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from airflow.operators.python import PythonOperator
