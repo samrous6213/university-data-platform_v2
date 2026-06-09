@@ -33,7 +33,7 @@ university-data-platform_v2/
 │   │   ├── spark_utils.py          # Standard Spark session builder
 │   │   └── minio_client.py         # Connection helper
 │   ├── person_0_template.py        # Template for team members
-│   ├── sara_openalex.py            # Sara's DAG (API source)
+│   ├── person_1_openalex.py            # Sara's DAG (API source)
 │   ├── person_2_um5.py             # Person 2 DAG (Web source)
 │   ├── person_3_mit.py             # Person 3 DAG (PDF source)
 │   ├── person_4_crossref.py        # Person 4 DAG (API source)
