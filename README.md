@@ -1,77 +1,200 @@
-# University Data Platform V2
+# University Data Platform
 
-## Team Members (7 people)
-
-| Person | Source | DAG File | Hudi Table |
-|--------|--------|----------|-------------|
-| P1 | API - OpenAlex | `dag_api_openalex.py` | faculty_profiles |
-| P2 | Web - UM5 | `dag_web_um5.py` | course_catalog |
-| P3 | PDF - MIT OCW | `dag_doc_mit.py` | course_catalog |
-| P4 | API - Crossref | `dag_api_crossref.py` | faculty_profiles |
-| P5 | Web - Data.gov.ma | `dag_web_datagov.py` | faculty_profiles |
-| P6 | Web - UCA | `dag_web_uca.py` | course_catalog |
-| P7 | Wiki - Mathematics | `dag_wiki_math.py` | course_catalog |
-
-## Setup Instructions
-
-1. Clone this repo
-2. Each person copies `dags/person_0_template.py` to their own DAG file
-3. Edit the `SOURCE_NAME` and extraction logic
-4. Commit and push to GitHub
-
-## Folder Structure
-
-<details>
-<summary>Click to expand folder structure</summary>
-
-```text
-university-data-platform_v2/
-.
-├── dags/                           # ALL Airflow DAGs live here
-│   ├── common/                     # Shared code (you all import this)
-│   │   ├── __init__.py
-│   │   ├── spark_utils.py          # Standard Spark session builder
-│   │   └── minio_client.py         # Connection helper
-│   ├── person_0_template.py        # Template for team members
-│   ├── person_1_openalex.py        # Person 1 DAG (API source)
-│   ├── person_2_um5.py             # Person 2 DAG (Web source)
-│   ├── person_3_mit.py             # Person 3 DAG (PDF source)
-│   ├── person_4_crossref.py        # Person 4 DAG (API source)
-│   ├── person_5_datagov.py         # Person 5 DAG (Web source)
-│   ├── person_6_uca.py             # Person 6 DAG (Web source)
-│   └── person_7_wiki.py            # Person 7 DAG (Wiki source)
-│
-├── plugins/                        # Custom Airflow plugins/operators
-│   └── hudi_operators.py           # Custom operator to write to Hudi
-│
-├── spark_jobs/                     # Standalone .py files for complex transforms
-│   └── transform_hudi.py           # Called by Airflow via SparkOperator
-│
-├── notebooks/                      # Dev exploration (keep out of DAGs)
-├── airflow_home/                   # Airflow configuration (gitignored)
-│
-├── docker-compose.yml              # Airflow + MinIO + Postgres (Metastore)
-├── requirements.txt                # Python dependencies
-├── .gitignore                      # Git ignore file
-└── README.md                       # This file
-```
-</details>
-
-## Git Workflow
-
-1. Always pull before working: `git pull origin main`
-2. Create your own branch: `git checkout -b person-X-source`
-3. Work on your DAG only
-4. Push and create a Pull Request: `git push origin person-X-source`
-
-## Quick Commands
+## 1. Cloner le projet
 
 ```bash
-# Check your work
-git status
-git log --oneline -5
+git clone <repository-url>
+cd university-data-platform
+```
 
-# Commit your changes
-git add dags/your_dag_file.py
-git commit -m "P1: Added OpenAlex API ingestion DAG"
-git push origin your-branch-name
+---
+
+## 2. Démarrer Docker Desktop
+
+Vérifier que Docker est lancé :
+
+```bash
+docker ps
+```
+
+---
+
+## 3. Lancer l'infrastructure
+
+```bash
+docker compose up -d
+```
+
+Vérifier les conteneurs :
+
+```bash
+docker ps
+```
+
+---
+
+## 4. Accès aux services
+
+### MinIO
+
+```text
+http://localhost:9001
+```
+
+```text
+Username: minioadmin
+Password: minioadmin
+```
+
+### Spark
+
+```text
+http://localhost:8080
+```
+
+### Metabase
+
+```text
+http://localhost:3000
+```
+
+### Airflow
+
+```text
+http://localhost:8081
+```
+
+```text
+Username: admin
+Password: admin
+```
+
+### Elasticsearch
+
+```text
+http://localhost:9200
+```
+
+---
+
+## 5. Exécuter l'ingestion OpenAlex
+
+```bash
+python -m src.ingestion.apis.openalex
+```
+
+---
+
+## 6. Exécuter le Web Scraping UCA
+
+```bash
+python -m src.ingestion.scrapers.uca
+```
+
+---
+
+## 7. Vérifier les données dans MinIO
+
+1. Ouvrir MinIO
+2. Aller dans le bucket raw
+3. Vérifier les fichiers JSON
+
+---
+
+## 8. Exécuter les transformations Spark
+
+```bash
+spark-submit src/transformations/faculty_profiles.py
+```
+
+```bash
+spark-submit src/transformations/course_catalog.py
+```
+
+---
+
+## 9. Vérifier Elasticsearch
+
+```bash
+curl http://localhost:9200
+```
+
+---
+
+## 10. Vérifier PostgreSQL
+
+```bash
+docker exec -it university-postgres psql -U hive -d metastore
+```
+
+Puis :
+
+```sql
+SELECT version();
+```
+
+---
+
+## 11. Consulter les logs
+
+### Airflow
+
+```bash
+docker logs airflow-webserver
+```
+
+### Spark
+
+```bash
+docker logs spark-master
+docker logs spark-worker
+```
+
+### Hive
+
+```bash
+docker logs hive-metastore
+```
+
+### MinIO
+
+```bash
+docker logs university-minio
+```
+
+---
+
+## 12. Arrêter la plateforme
+
+```bash
+docker compose down
+```
+
+---
+
+## Architecture
+
+```text
+OpenAlex API
+UCA Website
+        ↓
+      MinIO
+   (Raw Data)
+        ↓
+      Spark
+(Transformations)
+        ↓
+      Hudi
+ (Curated Data)
+        ↓
+      Hive
+    (SQL)
+        ↓
+    Metabase
+
+        ↓
+ Elasticsearch
+
+        ↓
+    Airflow
+```
