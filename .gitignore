@@ -122,4 +122,5 @@ src/**/__pycache__/
 *.key
 *.pem
 *.crt
-config_local.py
+config_local.pyairflow_env/
+.venv311/
