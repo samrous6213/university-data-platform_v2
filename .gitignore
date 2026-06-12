@@ -1,31 +1,125 @@
-#python
-pycache/
+# Byte-compiled / optimized / DLL files
+__pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
+*.dll
+*.dylib
+
+# Virtual environments
+.env
+.venv
 env/
 venv/
 ENV/
-.venv/
-#Ide 
+env.bak/
+venv.bak/
+pythonenv*
+
+# Airflow virtual environment (important - ne pas commit)
+airflow_env/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
-#os
+*~
+.project
+.pydevproject
+.settings/
+
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
-#data files
+Desktop.ini
+
+# Logs
+*.log
+logs/
+*.log.*
+logs/**/*.log
+airflow/logs/
+
+# Local configuration
+.env
+.env.local
+.env.*.local
+docker-compose.override.yml
+
+# Data files (ne pas commit les données)
 *.json
 *.csv
 *.parquet
 *.hudi
-#logs
-*.log
-logs/
-#local configuration 
-.env
+*.pdf
+*.html
+data/
+raw/
+processed/
+*.db
+*.sqlite
+*.sqlite3
 
-docker-compose.override.yml
-docker-compose.yml 
+# MinIO volumes (si monté localement)
+minio_data/
+postgres_data/
+elasticsearch_data/
+hive_data/
+volumes/
+
+# Test and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+site-packages/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+
+# DAG backups and temp files
+dags/__pycache__/
+dags/*.pyc
+dags/*.py.bak
+dags/*.tmp
+
+# Source temp files
+src/__pycache__/
+src/**/__pycache__/
+*.py.bak
+*.tmp
+
+# Sensitive information
+*secret*
+*.key
+*.pem
+*.crt
+config_local.py
