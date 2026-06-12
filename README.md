@@ -77,19 +77,38 @@ http://localhost:9200
 
 ---
 
-## 5. Exécuter l'ingestion OpenAlex
+## 5. Exécuter le pipeline Airflow `chaimae_pipeline`
 
+Ce pipeline exécute :
+- `openalex_to_minio` (ingestion OpenAlex → MinIO)
+- `uca_to_minio` (scraping UCA → MinIO)
+
+### Depuis l’UI Airflow
+- Ouvrir : `http://localhost:8081`
+- Se connecter avec `admin/admin`
+- Trouver le DAG `chaimae_pipeline` et lancer un run
+
+### Depuis le CLI (container)
 ```bash
-python -m src.ingestion.apis.openalex
+docker exec airflow-webserver airflow dags trigger chaimae_pipeline
 ```
 
 ---
 
-## 6. Exécuter le Web Scraping UCA
+## 6. Exécuter manuellement OpenAlex (hors Airflow)
 
 ```bash
-python -m src.ingestion.scrapers.uca
+python -m src.ingestion.api.chaimae_openalex
 ```
+
+---
+
+## 7. Exécuter manuellement le Web Scraping UCA (hors Airflow)
+
+```bash
+python -m src.ingestion.web.chaimae_uca
+```
+
 
 ---
 

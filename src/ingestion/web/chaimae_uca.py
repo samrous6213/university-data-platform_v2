@@ -1,18 +1,13 @@
 import requests
-
 from bs4 import BeautifulSoup
-
 from urllib.parse import urljoin, urlparse, urlunparse
-
 from collections import deque
-
 from datetime import datetime
 
 from src.storage.minio.chaimae_client import MinIOClient
 
 
 BASE_URL = "https://www.uca.ma"
-
 MAX_PAGES = 100
 
 
@@ -22,7 +17,6 @@ def _normalize_url(url: str) -> str:
 
     # Drop fragments (#...)
     parsed = parsed._replace(fragment="")
-
 
     # Remove trailing slash for non-root paths
     if parsed.path and parsed.path != "/" and parsed.path.endswith("/"):
@@ -36,32 +30,65 @@ def _normalize_url(url: str) -> str:
 
 
 def _is_allowed_url(url: str) -> bool:
-
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         return False
-    # Allow both uca.ma and www.uca.ma
     host = (parsed.netloc or "").lower()
     return host.endswith("uca.ma")
+
+
+def _html_object_name(url: str) -> str:
+    """Convert a URL to a safe MinIO object name for HTML files."""
+    return (
+        url.replace("https://", "")
+           .replace("http://", "")
+           .replace("/", "_")
+    )
+
+
+def _crawl_pdf(session: requests.Session, full_url: str, client: MinIOClient, logs: list, page_url: str):
+    """Download and upload a single PDF to MinIO."""
+    try:
+        pdf_resp = session.get(
+            full_url,
+            timeout=20,
+            verify=False,
+            allow_redirects=True,
+        )
+        pdf_resp.raise_for_status()
+
+        pdf_name = full_url.split("/")[-1] or "document.pdf"
+
+        client.upload_binary(
+            bucket_name="data-lake",
+            object_name=f"raw/pdfs/{pdf_name}",
+            data=pdf_resp.content,
+            content_type="application/pdf",
+        )
+
+    except Exception as e:
+        logs.append({
+            "url": page_url,
+            "status": "PDF_ERROR",
+            "pdf_url": full_url,
+            "message": str(e),
+            "timestamp": datetime.now().isoformat(),
+        })
 
 
 def crawl_uca():
 
     client = MinIOClient()
-
     visited = set()
-
-    session = requests.Session()
-    session.headers.update(
-        {
-            "User-Agent": "Mozilla/5.0 (compatible; UCA crawler/1.0; +https://www.uca.ma)",
-        }
-    )
-
     queue = deque([_normalize_url(BASE_URL)])
-
     logs = []
 
+    now = datetime.now()
+
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (compatible; UCA crawler/1.0; +https://www.uca.ma)",
+    })
 
     while queue and len(visited) < MAX_PAGES:
 
@@ -79,46 +106,22 @@ def crawl_uca():
                 verify=False,
                 allow_redirects=True,
             )
-
-
             response.raise_for_status()
 
-            html_name = (
-                url.replace(
-                    "https://",
-                    ""
-                )
-                .replace(
-                    "/",
-                    "_"
-                )
-            )
-
+            # Upload HTML page
             client.upload_binary(
                 bucket_name="data-lake",
-                object_name=(
-                    f"raw/html/"
-                    f"{html_name}.html"
-                ),
-                data=response.text.encode(
-                    "utf-8"
-                ),
-                content_type="text/html"
+                object_name=f"raw/html/{_html_object_name(url)}.html",
+                data=response.text.encode("utf-8"),
+                content_type="text/html",
             )
 
             soup = BeautifulSoup(response.text, "html.parser")
-
             anchors = soup.find_all("a", href=True)
+
             pdf_links = 0
             queued_links = 0
-
-            href_samples = []
-
-            for a in anchors[:20]:
-                try:
-                    href_samples.append(str(a.get("href")))
-                except Exception:
-                    pass
+            href_samples = [str(a.get("href")) for a in anchors[:20]]
 
             for link in anchors:
                 try:
@@ -126,38 +129,11 @@ def crawl_uca():
                     if not href:
                         continue
 
-                    full_url = urljoin(url, href)
-                    full_url = _normalize_url(full_url)
+                    full_url = _normalize_url(urljoin(url, href))
 
                     if full_url.lower().endswith(".pdf"):
                         pdf_links += 1
-                        try:
-                            pdf_resp = session.get(
-                                full_url,
-                                timeout=20,
-                                verify=False,
-                                allow_redirects=True,
-                            )
-                            pdf_resp.raise_for_status()
-
-                            pdf_name = full_url.split("/")[-1] or "document.pdf"
-
-                            client.upload_binary(
-                                bucket_name="data-lake",
-                                object_name=f"raw/pdfs/{pdf_name}",
-                                data=pdf_resp.content,
-                                content_type="application/pdf",
-                            )
-                        except Exception as e:
-                            logs.append(
-                                {
-                                    "url": url,
-                                    "status": "PDF_ERROR",
-                                    "pdf_url": full_url,
-                                    "message": str(e),
-                                    "timestamp": datetime.now().isoformat(),
-                                }
-                            )
+                        _crawl_pdf(session, full_url, client, logs, url)
 
                     elif _is_allowed_url(full_url):
                         if full_url not in visited and full_url not in queue:
@@ -165,52 +141,55 @@ def crawl_uca():
                             queued_links += 1
 
                 except Exception as e:
-                    logs.append(
-                        {
-                            "url": url,
-                            "status": "LINK_PARSE_ERROR",
-                            "message": str(e),
-                            "timestamp": datetime.now().isoformat(),
-                        }
-                    )
+                    logs.append({
+                        "url": url,
+                        "status": "LINK_PARSE_ERROR",
+                        "message": str(e),
+                        "timestamp": datetime.now().isoformat(),
+                    })
 
-            logs.append(
-                {
-                    "url": url,
-                    "status": 200,
-                    "timestamp": datetime.now().isoformat(),
-                    "anchors_found": len(anchors),
-                    "pdf_links_found": pdf_links,
-                    "queued_links_added": queued_links,
-                    "href_samples": href_samples,
-                }
-            )
+            logs.append({
+                "url": url,
+                "status": response.status_code,
+                "timestamp": datetime.now().isoformat(),
+                "anchors_found": len(anchors),
+                "pdf_links_found": pdf_links,
+                "queued_links_added": queued_links,
+                "href_samples": href_samples,
+            })
 
+        except requests.exceptions.Timeout:
+            logs.append({
+                "url": url,
+                "status": "TIMEOUT",
+                "message": "Request timed out after 20s",
+                "timestamp": datetime.now().isoformat(),
+            })
 
-        
+        except requests.exceptions.HTTPError as e:
+            logs.append({
+                "url": url,
+                "status": e.response.status_code if e.response is not None else "HTTP_ERROR",
+                "message": str(e),
+                "timestamp": datetime.now().isoformat(),
+            })
+
         except Exception as e:
-
-
             logs.append({
                 "url": url,
                 "status": "ERROR",
                 "message": str(e),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             })
 
+    # Upload crawl log — timestamp fixé au début du crawl
     client.upload_json(
         bucket_name="data-lake",
-        object_name=(
-            f"raw/logs/uca/"
-            f"crawl_"
-            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        ),
-        data=logs
+        object_name=f"raw/logs/uca/crawl_{now.strftime('%Y%m%d_%H%M%S')}.json",
+        data=logs,
     )
 
-    print(
-        f"{len(visited)} pages crawled"
-    )
+    print(f"{len(visited)} pages crawled")
 
 
 if __name__ == "__main__":

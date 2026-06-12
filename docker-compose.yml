@@ -121,6 +121,10 @@ services:
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      PYTHONPATH: /opt/airflow
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
     command: webserver
     ports:
       - "8081:8080"
@@ -134,6 +138,10 @@ services:
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      PYTHONPATH: /opt/airflow
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
     command: scheduler
 
 volumes:

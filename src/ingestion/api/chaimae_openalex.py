@@ -12,9 +12,7 @@ def extract_openalex(limit=20):
         "per-page": limit
     }
 
-    print(
-        f"OpenAlex extraction ({limit})"
-    )
+    print(f"OpenAlex extraction ({limit})")
 
     response = requests.get(
         url,
@@ -24,50 +22,61 @@ def extract_openalex(limit=20):
 
     response.raise_for_status()
 
-    return response.json()
+    return response.json(), response.status_code
 
 
-def run():
+def run(limit=20):
 
     client = MinIOClient()
+    now = datetime.now()
+    timestamp = now.strftime('%Y%m%d_%H%M%S')
+    status = 500
+    records = 0
 
-    data = extract_openalex(20)
+    try:
+        data, status = extract_openalex(limit)
+        records = len(data.get("results", []))
 
-    filename = (
-        f"raw/api/openalex/"
-        f"openalex_"
-        f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    )
+        client.upload_json(
+            bucket_name="data-lake",
+            object_name=(
+                f"raw/api/openalex/"
+                f"openalex_{timestamp}.json"
+            ),
+            data=data
+        )
 
-    client.upload_json(
-        bucket_name="data-lake",
-        object_name=filename,
-        data=data
-    )
+        print("OpenAlex completed")
 
-    log = {
-        "source": "openalex",
-        "status": 200,
-        "records": len(
-            data.get(
-                "results",
-                []
-            )
-        ),
-        "timestamp": datetime.now().isoformat()
-    }
+    except requests.exceptions.Timeout:
+        print("Erreur : timeout lors de l'appel à l'API OpenAlex")
 
-    client.upload_json(
-        bucket_name="data-lake",
-        object_name=(
-            f"raw/logs/openalex/"
-            f"log_"
-            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        ),
-        data=log
-    )
+    except requests.exceptions.HTTPError as e:
+        print(f"Erreur HTTP : {e}")
+        status = e.response.status_code if e.response is not None else 500
 
-    print("OpenAlex completed")
+    except requests.exceptions.RequestException as e:
+        print(f"Erreur réseau : {e}")
+
+    except Exception as e:
+        print(f"Erreur inattendue : {e}")
+
+    finally:
+        log = {
+            "source": "openalex",
+            "status": status,
+            "records": records,
+            "timestamp": now.isoformat()
+        }
+
+        client.upload_json(
+            bucket_name="data-lake",
+            object_name=(
+                f"raw/logs/openalex/"
+                f"log_{timestamp}.json"
+            ),
+            data=log
+        )
 
 
 if __name__ == "__main__":
