@@ -1,7 +1,8 @@
-import requests
+import re
+import json
 import hashlib
 import PyPDF2
-import re
+import requests
 from io import BytesIO
 from datetime import datetime
 from src.storage.minio.sara_client import MinIOClient
@@ -11,6 +12,49 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+# ==============================================================
+# FONCTIONS UTILITAIRES POUR LES MÉTADONNÉES
+# ==============================================================
+def generate_record_id(source_system: str, source_url: str, data: dict) -> str:
+    """Génère un record_id unique pour traçabilité."""
+    content_str = json.dumps(data, sort_keys=True)
+    hash_obj = hashlib.sha256(content_str.encode())
+    return f"{source_system}_{hash_obj.hexdigest()[:16]}"
+
+
+def create_common_fields(source_system: str, source_url: str, data: dict) -> dict:
+    """Ajoute les champs communs requis par le storage design."""
+    clean_data = {k: v for k, v in data.items() if k not in ['record_id', 'source_system', 'source_url']}
+    
+    return {
+        "record_id": generate_record_id(source_system, source_url, clean_data),
+        "source_system": source_system,
+        "source_url": source_url,
+        "content_hash": hashlib.sha256(json.dumps(clean_data, sort_keys=True).encode()).hexdigest(),
+        "crawl_timestamp": datetime.now().isoformat(),
+        "business_timestamp": datetime.now().isoformat(),
+        "is_deleted": False,
+        "language": "en",
+        "normalized_text": "",
+        **data
+    }
+
+
+def get_date_partition() -> dict:
+    """Retourne les composants de partitionnement date."""
+    now = datetime.now()
+    return {
+        "year": now.strftime("%Y"),
+        "month": now.strftime("%m"),
+        "day": now.strftime("%d"),
+        "timestamp": now.strftime("%Y%m%d_%H%M%S"),
+        "iso": now.isoformat()
+    }
+
+
+# ==============================================================
+# FONCTIONS DOCUMENT
+# ==============================================================
 def calculate_checksum(content: bytes) -> str:
     """Calculate SHA-256 checksum of content."""
     return hashlib.sha256(content).hexdigest()
@@ -83,12 +127,15 @@ def download_file(url: str, session: requests.Session) -> tuple:
     return content, response.status_code
 
 
+# ==============================================================
+# MAIN FUNCTION - AVEC STOCKAGE STRUCTURÉ
+# ==============================================================
 def run(pdf_url: str, source_name: str = "imist"):
-    """Main function to download and store document from IMIST."""
+    """Main function to download and store document from IMIST with structured storage."""
     
     client = MinIOClient(endpoint="localhost:9000")
-    now = datetime.now()
-    timestamp = now.strftime("%Y%m%d_%H%M%S")
+    partition = get_date_partition()
+    timestamp = partition["timestamp"]
     
     session = requests.Session()
     session.headers.update({
@@ -132,9 +179,15 @@ def run(pdf_url: str, source_name: str = "imist"):
         if all_links:
             print(f"      First 3 links: {all_links[:3]}")
         
-        # 5. Upload PDF to MinIO
+        # 5. Upload PDF to MinIO (raw-documents avec partitionnement)
         print("[5/6] Uploading PDF to MinIO...")
-        file_object_name = f"raw/documents/{source_name}/{file_name}"
+        file_object_name = (
+            f"raw-documents/{source_name}/"
+            f"year={partition['year']}/"
+            f"month={partition['month']}/"
+            f"day={partition['day']}/"
+            f"{file_name}"
+        )
         client.upload_binary(
             bucket_name="data-lake",
             object_name=file_object_name,
@@ -143,40 +196,62 @@ def run(pdf_url: str, source_name: str = "imist"):
         )
         print(f"      Uploaded to: {file_object_name}")
         
-        # 6. Upload metadata, links, and logs
+        # 6. Upload metadata, links, and logs (raw-json avec partitionnement)
         print("[6/6] Saving metadata, links, and logs...")
         
-        # Metadata record with links included
-        metadata_record = {
+        # Préparer les données avec métadonnées communes
+        document_data = {
             "source": source_name,
             "source_url": pdf_url,
             "file_name": file_name,
             "file_size": len(file_content),
             "checksum": checksum,
-            "download_timestamp": now.isoformat(),
+            "download_timestamp": partition["iso"],
+            "download_date": f"{partition['year']}-{partition['month']}-{partition['day']}",
             "pdf_metadata": metadata,
             "extracted_links": all_links,
             "total_links_found": len(all_links),
             "storage_path": file_object_name
         }
         
-        # Save metadata
-        metadata_object_name = f"raw/metadata/{source_name}/metadata_{timestamp}.json"
+        # Ajouter les champs communs
+        document_with_metadata = create_common_fields(
+            source_system=f"document_{source_name}",
+            source_url=pdf_url,
+            data=document_data
+        )
+        
+        # Save metadata in raw-json
+        metadata_object_name = (
+            f"raw-json/documents/{source_name}/"
+            f"year={partition['year']}/"
+            f"month={partition['month']}/"
+            f"day={partition['day']}/"
+            f"metadata_{timestamp}.json"
+        )
         client.upload_json(
             bucket_name="data-lake",
             object_name=metadata_object_name,
-            data=metadata_record
+            data=document_with_metadata
         )
+        print(f"      Metadata saved to: {metadata_object_name}")
         
-        # Save links separately (optionnel mais utile)
+        # Save links separately in raw-json
         if all_links:
-            links_object_name = f"raw/links/{source_name}/links_{timestamp}.json"
+            links_object_name = (
+                f"raw-json/documents/{source_name}/links/"
+                f"year={partition['year']}/"
+                f"month={partition['month']}/"
+                f"day={partition['day']}/"
+                f"links_{timestamp}.json"
+            )
             links_data = {
                 "source": source_name,
                 "source_file": file_name,
                 "total_links": len(all_links),
                 "links": all_links,
-                "extraction_timestamp": now.isoformat()
+                "extraction_timestamp": partition["iso"],
+                "extraction_date": f"{partition['year']}-{partition['month']}-{partition['day']}"
             }
             client.upload_json(
                 bucket_name="data-lake",
@@ -185,7 +260,7 @@ def run(pdf_url: str, source_name: str = "imist"):
             )
             print(f"      Links saved to: {links_object_name}")
         
-        # Save log
+        # Save log in raw-json/logs
         log = {
             "source": source_name,
             "operation": "download",
@@ -196,15 +271,23 @@ def run(pdf_url: str, source_name: str = "imist"):
             "checksum": checksum,
             "num_pages": metadata["num_pages"],
             "links_extracted": len(all_links),
-            "timestamp": now.isoformat()
+            "timestamp": partition["iso"],
+            "download_date": f"{partition['year']}-{partition['month']}-{partition['day']}"
         }
         
-        log_object_name = f"raw/logs/{source_name}/download_{timestamp}.json"
+        log_object_name = (
+            f"raw-json/logs/documents/{source_name}/"
+            f"year={partition['year']}/"
+            f"month={partition['month']}/"
+            f"day={partition['day']}/"
+            f"download_{timestamp}.json"
+        )
         client.upload_json(
             bucket_name="data-lake",
             object_name=log_object_name,
             data=log
         )
+        print(f"      Log saved to: {log_object_name}")
         
         # Final summary
         print("\n" + "="*60)
@@ -215,11 +298,12 @@ def run(pdf_url: str, source_name: str = "imist"):
         print(f"Size: {len(file_content)} bytes ({len(file_content)/1024:.2f} KB)")
         print(f"Checksum: {checksum[:32]}...")
         print(f"Links found in PDF: {len(all_links)}")
-        print(f"\nStored in MinIO:")
+        print(f"Record ID: {document_with_metadata.get('record_id', '')[:20]}...")
+        print(f"\nStored in MinIO (raw-documents + raw-json):")
         print(f"  - PDF: {file_object_name}")
         print(f"  - Metadata: {metadata_object_name}")
         if all_links:
-            print(f"  - Links: raw/links/{source_name}/links_{timestamp}.json")
+            print(f"  - Links: {links_object_name}")
         print(f"  - Log: {log_object_name}")
         
     except requests.exceptions.RequestException as e:
@@ -230,19 +314,53 @@ def run(pdf_url: str, source_name: str = "imist"):
             "status": 500,
             "source_url": pdf_url,
             "error": str(e),
-            "timestamp": now.isoformat()
+            "timestamp": partition["iso"]
         }
-        client.upload_json(
-            bucket_name="data-lake",
-            object_name=f"raw/logs/{source_name}/error_{timestamp}.json",
-            data=error_log
+        error_log_name = (
+            f"raw-json/logs/documents/{source_name}/"
+            f"year={partition['year']}/"
+            f"month={partition['month']}/"
+            f"day={partition['day']}/"
+            f"error_{timestamp}.json"
         )
+        try:
+            client.upload_json(
+                bucket_name="data-lake",
+                object_name=error_log_name,
+                data=error_log
+            )
+        except:
+            print(f"      Could not save error log to MinIO")
+            
     except Exception as e:
         print(f"\n[ERROR] An unexpected error occurred: {e}")
+        error_log = {
+            "source": source_name,
+            "operation": "download",
+            "status": 500,
+            "source_url": pdf_url,
+            "error": str(e),
+            "timestamp": partition["iso"]
+        }
+        error_log_name = (
+            f"raw-json/logs/documents/{source_name}/"
+            f"year={partition['year']}/"
+            f"month={partition['month']}/"
+            f"day={partition['day']}/"
+            f"error_{timestamp}.json"
+        )
+        try:
+            client.upload_json(
+                bucket_name="data-lake",
+                object_name=error_log_name,
+                data=error_log
+            )
+        except:
+            print(f"      Could not save error log to MinIO")
 
 
 if __name__ == "__main__":
-    # Ton lien IMIST
+    # Ton lien toubkal IMIST
     DOCUMENT_URL = "https://toubkal.imist.ma/bitstreams/a69f14f2-5c96-4baf-93e0-44c454295989/download"
     
     run(DOCUMENT_URL, source_name="imist")
