@@ -1,0 +1,24 @@
+# Dépendances Python (Semaine 1)
+# Note: les versions sont pinées pour réduire les écarts d’environnement.
+
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.2.2
+
+boto3==1.35.18
+botocore==1.35.18
+minio==7.2.10
+
+PyPDF2==3.0.1
+
+apache-airflow==2.10.0
+apache-airflow-providers-postgres==5.10.0
+apache-airflow-providers-elasticsearch==3.2.0
+
+# Typiquement utilisé par Airflow/SQLAlchemy (transitivement, mais on peut le rendre explicite)
+psycopg2-binary==2.9.9
+
+# Helpers / robustesse
+python-dateutil==2.9.0.post0
+pytz==2025.1
+
