@@ -48,6 +48,118 @@ def get_date_partition() -> dict:
     }
 
 
+def save_raw_html(source_name: str, url: str, html_content: str, page_type: str = "general") -> None:
+    """
+    Sauvegarde le HTML brut dans le bucket raw-web-html.
+    
+    Args:
+        source_name: Nom de la source (ex: est_sale, fsjes_agdal)
+        url: URL de la page
+        html_content: Contenu HTML
+        page_type: Type de page (faculty, news, home, avis, etc.)
+    """
+    client = MinIOClient(endpoint="localhost:9000")
+    partition = get_date_partition()
+    timestamp = partition["timestamp"]
+    
+    # Générer un nom de fichier basé sur l'URL
+    url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+    file_name = f"{source_name}_{page_type}_{url_hash}_{timestamp}.html"
+    
+    object_path = f"{source_name}/year={partition['year']}/month={partition['month']}/day={partition['day']}/{file_name}"
+    
+    # Sauvegarder le HTML
+    client.upload_binary(
+        bucket_name="raw-web-html",
+        object_name=object_path,
+        data=html_content.encode('utf-8'),
+        content_type="text/html"
+    )
+    
+    # Sauvegarder les métadonnées du HTML avec le type de page
+    metadata = {
+        "source_url": url,
+        "source_name": source_name,
+        "page_type": page_type,
+        "timestamp": partition["iso"],
+        "file_name": file_name,
+        "content_hash": hashlib.sha256(html_content.encode()).hexdigest(),
+        "size_bytes": len(html_content)
+    }
+    
+    metadata_path = f"{source_name}/year={partition['year']}/month={partition['month']}/day={partition['day']}/metadata_{page_type}_{timestamp}.json"
+    client.upload_json(
+        bucket_name="raw-web-html",
+        object_name=metadata_path,
+        data=metadata
+    )
+    
+    print(f"      HTML ({page_type}) saved: {object_path}")
+
+
+def save_image(image_url: str, source_name: str, image_name: str = None) -> None:
+    """
+    Sauvegarde une image dans le bucket raw-images.
+    
+    Args:
+        image_url: URL de l'image
+        source_name: Nom de la source
+        image_name: Nom personnalisé pour l'image (optionnel)
+    """
+    try:
+        client = MinIOClient(endpoint="localhost:9000")
+        partition = get_date_partition()
+        timestamp = partition["timestamp"]
+        
+        # Télécharger l'image
+        response = requests.get(image_url, timeout=30, verify=False)
+        response.raise_for_status()
+        
+        # Déterminer le nom du fichier
+        if image_name:
+            file_name = image_name
+        else:
+            # Extraire le nom du fichier depuis l'URL
+            file_name = image_url.split("/")[-1]
+            if not file_name or '.' not in file_name:
+                file_name = f"image_{hashlib.md5(image_url.encode()).hexdigest()[:8]}_{timestamp}.jpg"
+        
+        # Déterminer le content-type
+        content_type = response.headers.get('content-type', 'image/jpeg')
+        
+        object_path = f"{source_name}/year={partition['year']}/month={partition['month']}/day={partition['day']}/{file_name}"
+        
+        client.upload_binary(
+            bucket_name="raw-images",
+            object_name=object_path,
+            data=response.content,
+            content_type=content_type
+        )
+        
+        # Sauvegarder les métadonnées de l'image
+        metadata = {
+            "source_url": image_url,
+            "source_name": source_name,
+            "timestamp": partition["iso"],
+            "file_name": file_name,
+            "content_hash": hashlib.sha256(response.content).hexdigest(),
+            "size_bytes": len(response.content),
+            "content_type": content_type
+        }
+        
+        metadata_path = f"{source_name}/year={partition['year']}/month={partition['month']}/day={partition['day']}/image_metadata_{timestamp}.json"
+        client.upload_json(
+            bucket_name="raw-images",
+            object_name=metadata_path,
+            data=metadata
+        )
+        
+        print(f"      Image saved: {object_path}")
+        
+    except Exception as e:
+        print(f"      Warning: Could not save image {image_url}: {e}")
+
+
 # ==============================================================
 # SCRAPER 1: FSJES AGDAL - TOUTES LES ACTUALITÉS (PAGE TAXONOMY)
 # ==============================================================
@@ -78,6 +190,9 @@ def scrape_fsjes_all_actualites(url: str, session: requests.Session = None, max_
             response = session.get(page_url, timeout=30, verify=False, headers=headers)
             response.raise_for_status()
             
+            # Sauvegarder le HTML brut
+            save_raw_html("fsjes_agdal", page_url, response.text, "news")
+            
             soup = BeautifulSoup(response.text, 'html.parser')
             articles = soup.find_all('article', class_='node--type-article')
             
@@ -90,7 +205,7 @@ def scrape_fsjes_all_actualites(url: str, session: requests.Session = None, max_
             
             page_news = []
             for article in articles:
-                news_item = extract_fsjes_news_from_article(article)
+                news_item = extract_fsjes_news_from_article(article, session)
                 if news_item:
                     page_news.append(news_item)
             
@@ -115,7 +230,7 @@ def scrape_fsjes_all_actualites(url: str, session: requests.Session = None, max_
     return all_news
 
 
-def extract_fsjes_news_from_article(article) -> dict:
+def extract_fsjes_news_from_article(article, session: requests.Session = None) -> dict:
     """Extrait les informations d'un article FSJES."""
     try:
         title_elem = article.find('h3', class_='post-title')
@@ -157,6 +272,11 @@ def extract_fsjes_news_from_article(article) -> dict:
                 image_url = f"https://fsjes-agdal.um5.ac.ma{img_src}"
             else:
                 image_url = img_src
+            
+            # Sauvegarder l'image
+            if image_url:
+                img_name = f"fsjes_news_{hashlib.md5(image_url.encode()).hexdigest()[:8]}.jpg"
+                save_image(image_url, "fsjes_agdal", img_name)
         
         category = "Actualités"
         cat_elem = article.find('span', class_='post-categories')
@@ -194,6 +314,9 @@ def scrape_fsjes_avis(url_base: str, session: requests.Session = None) -> list:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         response = session.get(url_base, timeout=30, verify=False, headers=headers)
         response.raise_for_status()
+        
+        # Sauvegarder le HTML brut
+        save_raw_html("fsjes_agdal", url_base, response.text, "avis")
         
         soup = BeautifulSoup(response.text, 'html.parser')
         
@@ -268,6 +391,9 @@ def scrape_emi_actualites(url: str, session: requests.Session = None) -> list:
         response = session.get(url, timeout=30, verify=False, headers=headers)
         response.raise_for_status()
         
+        # Sauvegarder le HTML brut
+        save_raw_html("emi", url, response.text, "news")
+        
         soup = BeautifulSoup(response.text, 'html.parser')
         articles = soup.find_all('li', class_='wp-block-post')
         
@@ -325,6 +451,11 @@ def scrape_emi_actualites(url: str, session: requests.Session = None) -> list:
                     image_url = f"https://www.emi.ac.ma{img_src}"
                 else:
                     image_url = img_src
+                
+                # Sauvegarder l'image
+                if image_url:
+                    img_name = f"emi_news_{hashlib.md5(image_url.encode()).hexdigest()[:8]}.jpg"
+                    save_image(image_url, "emi", img_name)
             
             category = "Actualités"
             cat_elem = article.find('span', class_=re.compile(r'category|cat'))
@@ -352,7 +483,7 @@ def scrape_emi_actualites(url: str, session: requests.Session = None) -> list:
 
 
 # ==============================================================
-# SCRAPER 4: ENS RABAT - ACTUALITÉS (CARROUSEL + TICKER) - CORRIGÉ
+# SCRAPER 4: ENS RABAT - ACTUALITÉS (CARROUSEL + TICKER)
 # ==============================================================
 def scrape_ens_actualites(url: str, session: requests.Session = None, max_retries: int = 3) -> list:
     """
@@ -367,7 +498,6 @@ def scrape_ens_actualites(url: str, session: requests.Session = None, max_retrie
     
     for attempt in range(max_retries):
         try:
-            # Headers plus complets pour simuler un vrai navigateur
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -382,12 +512,14 @@ def scrape_ens_actualites(url: str, session: requests.Session = None, max_retrie
                 "Cache-Control": "max-age=0",
             }
             
-            # Pour la première tentative, utiliser les headers par défaut
             if attempt > 0:
                 headers["User-Agent"] = f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/12{attempt+1}.0.0.0 Safari/537.36"
             
             response = session.get(url, timeout=30, verify=False, headers=headers)
             response.raise_for_status()
+            
+            # Sauvegarder le HTML brut
+            save_raw_html("ens_rabat", url, response.text, "news")
             
             soup = BeautifulSoup(response.text, 'html.parser')
             
@@ -409,6 +541,10 @@ def scrape_ens_actualites(url: str, session: requests.Session = None, max_retrie
                             image_url = f"https://ens.um5.ac.ma{img_src}"
                         else:
                             image_url = img_src
+                        
+                        if image_url:
+                            img_name = f"ens_news_{hashlib.md5(image_url.encode()).hexdigest()[:8]}.jpg"
+                            save_image(image_url, "ens_rabat", img_name)
                     
                     date_text = ""
                     date_elem = item.find('span', class_=re.compile(r'date|created|changed'))
@@ -450,7 +586,7 @@ def scrape_ens_actualites(url: str, session: requests.Session = None, max_retrie
                             news_list.append({
                                 "title": title,
                                 "url": url_article,
-                                "publication_date": "",  # Pas de date dans le ticker
+                                "publication_date": "",
                                 "image_url": "",
                                 "category": "Avis",
                                 "source": "ENS Rabat",
@@ -464,7 +600,7 @@ def scrape_ens_actualites(url: str, session: requests.Session = None, max_retrie
             if e.response.status_code == 403:
                 print(f"      Tentative {attempt + 1}/{max_retries}: Accès refusé (403), nouvelle tentative...")
                 if attempt < max_retries - 1:
-                    time.sleep(2)  # Attendre avant de réessayer
+                    time.sleep(2)
                     continue
                 else:
                     print(f"      Échec après {max_retries} tentatives pour ENS")
@@ -498,9 +634,11 @@ def scrape_est_actualites(url: str, session: requests.Session = None) -> list:
         response = session.get(url, timeout=30, verify=False, headers=headers)
         response.raise_for_status()
         
+        # Sauvegarder le HTML brut
+        save_raw_html("est_sale", url, response.text, "news")
+        
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # === MÉTHODE 1: Actualités (section avec id "Actualités") ===
         articles = soup.find_all('div', class_='thim-ekits-post__article')
         
         if not articles:
@@ -563,6 +701,10 @@ def scrape_est_actualites(url: str, session: requests.Session = None) -> list:
                     image_url = f"https://est.um5.ac.ma{img_src}"
                 else:
                     image_url = img_src
+                
+                if image_url:
+                    img_name = f"est_news_{hashlib.md5(image_url.encode()).hexdigest()[:8]}.jpg"
+                    save_image(image_url, "est_sale", img_name)
             
             category = "Actualités"
             if 'evenement' in url_article.lower() or 'événement' in title.lower():
@@ -592,7 +734,7 @@ def scrape_est_actualites(url: str, session: requests.Session = None) -> list:
 # MAIN FUNCTION - ALL NEWS SCRAPER
 # ==============================================================
 def run():
-    """Scrape toutes les actualités de toutes les institutions."""
+    """Scrape toutes les actualités de toutes les institutions avec buckets MinIO."""
     
     client = MinIOClient(endpoint="localhost:9000")
     partition = get_date_partition()
@@ -605,6 +747,11 @@ def run():
     print("UNIVERSITY NEWS SCRAPER (FSJES + EMI + ENS + EST)")
     print("="*60)
     print(f"Date: {partition['year']}-{partition['month']}-{partition['day']}")
+    print("\n📦 Buckets utilisés:")
+    print("  - raw-web-html: HTML brut des pages")
+    print("  - raw-images: Images extraites")
+    print("  - raw-json: Données structurées")
+    print("="*60)
     
     all_news = []
     
@@ -670,7 +817,7 @@ def run():
             )
             unique_news.append(news_with_metadata)
     
-    # Sauvegarder
+    # Sauvegarder dans raw-json bucket
     if unique_news:
         news_data = {
             "source": "all_institutions",
@@ -682,16 +829,21 @@ def run():
         }
         
         object_path = (
-            f"raw-json/university_news/"
+            f"university_news/"
             f"year={partition['year']}/"
             f"month={partition['month']}/"
             f"day={partition['day']}/"
             f"university_news_{timestamp}.json"
         )
         
-        client.upload_json("data-lake", object_path, news_data)
+        client.upload_json(
+            bucket_name="raw-json",
+            object_name=object_path,
+            data=news_data
+        )
         
         print(f"\n  ✅ Total news saved: {len(unique_news)} -> {object_path}")
+        print(f"  📦 Bucket: raw-json")
         
         # Breakdown
         print(f"\n  📊 Breakdown by institution:")
@@ -714,6 +866,10 @@ def run():
     print("\n" + "="*60)
     print("SCRAPING COMPLETE")
     print("="*60)
+    print("\n📦 Résumé des buckets utilisés:")
+    print("  - raw-web-html: HTML brut sauvegardé")
+    print("  - raw-images: Images sauvegardées")
+    print("  - raw-json: Données structurées sauvegardées")
 
 
 if __name__ == "__main__":

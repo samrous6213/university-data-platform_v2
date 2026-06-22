@@ -19,7 +19,6 @@ def generate_record_id(source_system: str, source_url: str, data: dict) -> str:
 
 def create_common_fields(source_system: str, source_url: str, data: dict) -> dict:
     """Ajoute les champs communs requis par le storage design."""
-    # Nettoyer les données pour le hash (enlever les champs qui ne font pas partie des données métier)
     clean_data = {k: v for k, v in data.items() if k not in ['record_id', 'source_system', 'source_url']}
     
     return {
@@ -48,6 +47,118 @@ def get_date_partition() -> dict:
     }
 
 
+def save_raw_html(source_name: str, url: str, html_content: str, page_type: str = "general") -> None:
+    """
+    Sauvegarde le HTML brut dans le bucket raw-web-html.
+    
+    Args:
+        source_name: Nom de la source (ex: est_sale, fsjes_agdal)
+        url: URL de la page
+        html_content: Contenu HTML
+        page_type: Type de page (faculty, news, home, avis, etc.)
+    """
+    client = MinIOClient(endpoint="localhost:9000")
+    partition = get_date_partition()
+    timestamp = partition["timestamp"]
+    
+    # Générer un nom de fichier basé sur l'URL
+    url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+    file_name = f"{source_name}_{page_type}_{url_hash}_{timestamp}.html"
+    
+    object_path = f"{source_name}/year={partition['year']}/month={partition['month']}/day={partition['day']}/{file_name}"
+    
+    # Sauvegarder le HTML
+    client.upload_binary(
+        bucket_name="raw-web-html",
+        object_name=object_path,
+        data=html_content.encode('utf-8'),
+        content_type="text/html"
+    )
+    
+    # Sauvegarder les métadonnées du HTML avec le type de page
+    metadata = {
+        "source_url": url,
+        "source_name": source_name,
+        "page_type": page_type,
+        "timestamp": partition["iso"],
+        "file_name": file_name,
+        "content_hash": hashlib.sha256(html_content.encode()).hexdigest(),
+        "size_bytes": len(html_content)
+    }
+    
+    metadata_path = f"{source_name}/year={partition['year']}/month={partition['month']}/day={partition['day']}/metadata_{page_type}_{timestamp}.json"
+    client.upload_json(
+        bucket_name="raw-web-html",
+        object_name=metadata_path,
+        data=metadata
+    )
+    
+    print(f"      HTML ({page_type}) saved: {object_path}")
+
+
+def save_image(image_url: str, source_name: str, image_name: str = None) -> None:
+    """
+    Sauvegarde une image dans le bucket raw-images.
+    
+    Args:
+        image_url: URL de l'image
+        source_name: Nom de la source
+        image_name: Nom personnalisé pour l'image (optionnel)
+    """
+    try:
+        client = MinIOClient(endpoint="localhost:9000")
+        partition = get_date_partition()
+        timestamp = partition["timestamp"]
+        
+        # Télécharger l'image
+        response = requests.get(image_url, timeout=30, verify=False)
+        response.raise_for_status()
+        
+        # Déterminer le nom du fichier
+        if image_name:
+            file_name = image_name
+        else:
+            # Extraire le nom du fichier depuis l'URL
+            file_name = image_url.split("/")[-1]
+            if not file_name or '.' not in file_name:
+                file_name = f"image_{hashlib.md5(image_url.encode()).hexdigest()[:8]}_{timestamp}.jpg"
+        
+        # Déterminer le content-type
+        content_type = response.headers.get('content-type', 'image/jpeg')
+        
+        object_path = f"{source_name}/year={partition['year']}/month={partition['month']}/day={partition['day']}/{file_name}"
+        
+        client.upload_binary(
+            bucket_name="raw-images",
+            object_name=object_path,
+            data=response.content,
+            content_type=content_type
+        )
+        
+        # Sauvegarder les métadonnées de l'image
+        metadata = {
+            "source_url": image_url,
+            "source_name": source_name,
+            "timestamp": partition["iso"],
+            "file_name": file_name,
+            "content_hash": hashlib.sha256(response.content).hexdigest(),
+            "size_bytes": len(response.content),
+            "content_type": content_type
+        }
+        
+        metadata_path = f"{source_name}/year={partition['year']}/month={partition['month']}/day={partition['day']}/image_metadata_{timestamp}.json"
+        client.upload_json(
+            bucket_name="raw-images",
+            object_name=metadata_path,
+            data=metadata
+        )
+        
+        print(f"      Image saved: {object_path}")
+        
+    except Exception as e:
+        print(f"      Warning: Could not save image {image_url}: {e}")
+
+
 # ==============================================================
 # SCRAPER 1: EST SALÉ - FACULTY FROM HTML TABLE
 # ==============================================================
@@ -63,6 +174,9 @@ def scrape_est_faculty(url: str, session: requests.Session = None) -> list:
     try:
         response = session.get(url, timeout=30, verify=False)
         response.raise_for_status()
+        
+        # Sauvegarder le HTML brut
+        save_raw_html("est_sale", url, response.text, "faculty")
         
         soup = BeautifulSoup(response.text, 'html.parser')
         
@@ -113,7 +227,7 @@ def scrape_est_faculty(url: str, session: requests.Session = None) -> list:
 
 
 # ==============================================================
-# SCRAPER 2: EMI - FACULTY (AMÉLIORÉ)
+# SCRAPER 2: EMI - FACULTY (AMÉLIORÉ) - CORRIGÉ (plus de doublons)
 # ==============================================================
 def scrape_emi_faculty_improved(url: str, session: requests.Session, dept_name: str) -> list:
     """Extract faculty from EMI department page with improved parsing."""
@@ -121,6 +235,11 @@ def scrape_emi_faculty_improved(url: str, session: requests.Session, dept_name: 
     faculty_list = []
     try:
         response = session.get(url, timeout=30, verify=False)
+        response.raise_for_status()
+        
+        # Sauvegarder le HTML brut - TOUT dans le dossier emi/ avec page_type
+        save_raw_html("emi", url, response.text, f"faculty_{dept_name.replace(' ', '_')}")
+        
         soup = BeautifulSoup(response.text, 'html.parser')
         
         # Method 1: Look for email links
@@ -290,6 +409,9 @@ def scrape_ens_faculty(url: str, session: requests.Session = None) -> list:
         response = session.get(url, timeout=30, verify=False)
         response.raise_for_status()
         
+        # Sauvegarder le HTML brut
+        save_raw_html("ens_rabat", url, response.text, "faculty")
+        
         faculty_list = extract_faculty_from_javascript(response.text)
         
         # Clean and format the data
@@ -339,6 +461,9 @@ def scrape_fsjes_faculty(url: str, session: requests.Session = None) -> list:
         
         response = session.get(url, timeout=30, verify=False, headers=headers)
         response.raise_for_status()
+        
+        # Sauvegarder le HTML brut
+        save_raw_html("fsjes_agdal", url, response.text, "faculty")
         
         soup = BeautifulSoup(response.text, 'html.parser')
         email_pattern = re.compile(r'[\w\.-]+@[\w\.-]+\.\w+')
@@ -523,10 +648,10 @@ def scrape_fsjes_faculty(url: str, session: requests.Session = None) -> list:
 
 
 # ==============================================================
-# MAIN FUNCTION - COMBINED SCRAPER (AVEC STOCKAGE STRUCTURÉ)
+# MAIN FUNCTION - COMBINED SCRAPER (AVEC BUCKETS)
 # ==============================================================
 def run():
-    """Main function to scrape all faculty data and upload to MinIO with structured storage."""
+    """Main function to scrape all faculty data and upload to MinIO with buckets."""
     
     client = MinIOClient(endpoint="localhost:9000")
     partition = get_date_partition()
@@ -539,6 +664,10 @@ def run():
     print("ACADEMIC FACULTY SCRAPER (EST + EMI + ENS + FSJES)")
     print("="*60)
     print(f"Date: {partition['year']}-{partition['month']}-{partition['day']}")
+    print("\n📦 Buckets utilisés:")
+    print("  - raw-web-html: HTML brut des pages (page_type=faculty)")
+    print("  - raw-json: Données structurées")
+    print("="*60)
     
     all_faculty = []
     
@@ -594,7 +723,7 @@ def run():
     print(f"  Total FSJES faculty: {len(fsjes_faculty)}")
     
     # -----------------------------------------------------------------
-    # SAVE EVERYTHING TO MINIO AVEC STRUCTURE RAW-JSON
+    # SAVE EVERYTHING TO MINIO (raw-json bucket)
     # -----------------------------------------------------------------
     print("\n" + "="*60)
     print("Saving all data to MinIO...")
@@ -626,18 +755,23 @@ def run():
             "faculty_members": unique_faculty
         }
         
-        # Chemin avec partitionnement
+        # Chemin avec partitionnement dans bucket raw-json
         faculty_path = (
-            f"raw-json/faculty_profiles/"
+            f"faculty_profiles/"
             f"year={partition['year']}/"
             f"month={partition['month']}/"
             f"day={partition['day']}/"
             f"faculty_profiles_{timestamp}.json"
         )
         
-        client.upload_json("data-lake", faculty_path, faculty_data)
+        client.upload_json(
+            bucket_name="raw-json",
+            object_name=faculty_path,
+            data=faculty_data
+        )
         
         print(f"\n   ✅ Faculty saved: {len(unique_faculty)} -> {faculty_path}")
+        print(f"   📦 Bucket: raw-json")
         
         # Breakdown by institution
         print(f"\n   📊 Breakdown by institution:")
@@ -662,7 +796,9 @@ def run():
     print("="*60)
     print(f"Total faculty profiles found (before dedup): {len(all_faculty)}")
     print(f"Total unique faculty profiles: {len(unique_faculty)}")
-    print(f"\n Data stored in: data-lake/raw-json/faculty_profiles/year={partition['year']}/month={partition['month']}/day={partition['day']}/")
+    print(f"\n📦 Résumé des buckets utilisés:")
+    print("  - raw-web-html: HTML brut sauvegardé (page_type=faculty)")
+    print("  - raw-json: Données structurées sauvegardées")
     print("="*60)
 
 
