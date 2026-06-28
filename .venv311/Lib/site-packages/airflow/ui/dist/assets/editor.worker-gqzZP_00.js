@@ -1,0 +1,1 @@
+var e=``+new URL(`editor.worker-CkVRLSnK.js`,import.meta.url).href;export{e as default};

@@ -18,26 +18,28 @@ default_args = {
 
 
 def run_openalex():
-    # Delay imports so the DAG file can be parsed even if optional runtime deps
-    # (e.g., minio) are not installed in the Airflow image.
     from src.ingestion.api.chaimae_openalex import run as _run_openalex
-
     return _run_openalex()
 
 
 def crawl_uca():
     from src.ingestion.web.chaimae_uca import crawl_uca as _crawl_uca
-
     return _crawl_uca()
+
+
+# CORRECTION : fonction manquante dans le DAG original
+def download_toubkal_pdfs():
+    from ingestion.docs.chaimae_imist import run as _run_toubkal
+    return _run_toubkal()
 
 
 with DAG(
     dag_id="chaimae_pipeline",
     default_args=default_args,
-    description="OpenAlex + UCA to MinIO",
+    description="OpenAlex + UCA + imist PDFs to MinIO",
     schedule="@daily",
     catchup=False,
-    tags=["chaimae", "openalex", "uca", "minio"],
+    tags=["chaimae", "openalex", "uca", "imist", "minio"],
 ) as dag:
 
     api_task = PythonOperator(
@@ -50,5 +52,11 @@ with DAG(
         python_callable=crawl_uca,
     )
 
-    api_task >> web_task
+    # CORRECTION : python_callable pointe maintenant sur la fonction définie ci-dessus
+    pdf_task = PythonOperator(
+        task_id="imist_pdfs_to_minio",
+        python_callable=download_toubkal_pdfs,
+    )
 
+    # Ordre d'exécution : OpenAlex → UCA → Toubkal PDFs
+    api_task >> web_task >> pdf_task

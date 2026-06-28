@@ -1,19 +1,31 @@
-services:
+version: '3.8'
 
+services:
+  # ────────────────────────────────────────
+  # 1. MINIO (Stockage Objet)
+  # ────────────────────────────────────────
   minio:
     image: minio/minio:latest
     container_name: university-minio
     restart: unless-stopped
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:9000"      # API S3
+      - "9001:9001"      # Console Web
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
 
+  # ────────────────────────────────────────
+  # 2. POSTGRES (pour Hive Metastore)
+  # ────────────────────────────────────────
   postgres:
     image: postgres:13
     container_name: university-postgres
@@ -26,40 +38,75 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive -d metastore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ────────────────────────────────────────
+  # 3. HIVE METASTORE (Catalogue SQL)
+  # ────────────────────────────────────────
   hive-metastore:
     image: bitsondatadev/hive-metastore:latest
     container_name: hive-metastore
     restart: unless-stopped
     environment:
       DB_DRIVER: postgres
+      METASTORE_DB_HOST: postgres
+      METASTORE_DB_NAME: metastore
+      METASTORE_DB_USER: hive
+      METASTORE_DB_PASSWORD: hive
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "9083:9083"
 
+  # ────────────────────────────────────────
+  # 4. SPARK MASTER (Chef)
+  # ────────────────────────────────────────
   spark-master:
     image: apache/spark:3.5.1
     container_name: spark-master
     restart: unless-stopped
+    volumes:
+      - ./src:/opt/spark/work-dir/src
+      - ./data:/opt/spark/work-dir/data
     command: >
       /opt/spark/bin/spark-class
       org.apache.spark.deploy.master.Master
     ports:
-      - "7077:7077"
-      - "8080:8080"
+      - "7077:7077"   # Communication avec les workers
+      - "8080:8080"   # UI Web (accessible sur http://localhost:8080)
+    environment:
+      SPARK_MASTER_HOST: spark-master
 
+  # ────────────────────────────────────────
+  # 5. SPARK WORKER (Esclave)
+  # ────────────────────────────────────────
   spark-worker:
     image: apache/spark:3.5.1
     container_name: spark-worker
     restart: unless-stopped
     depends_on:
       - spark-master
+    volumes:
+      - ./src:/opt/spark/work-dir/src
+      - ./data:/opt/spark/work-dir/data
     command: >
       /opt/spark/bin/spark-class
       org.apache.spark.deploy.worker.Worker
       spark://spark-master:7077
+    environment:
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 2g
+    ports:
+      - "8082:8081"   # UI Web (accessible sur http://localhost:8082)
 
+  # ────────────────────────────────────────
+  # 6. ELASTICSEARCH (Recherche plein-texte)
+  # ────────────────────────────────────────
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: university-elasticsearch
@@ -70,18 +117,53 @@ services:
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
     ports:
       - "9200:9200"
+      - "9300:9300"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
+  # ────────────────────────────────────────
+  # 7. QDRANT (Recherche vectorielle / RAG)
+  # ────────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: university-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # API REST
+      - "6334:6334"   # API gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+
+  # ────────────────────────────────────────
+  # 8. METABASE (BI / Dashboards)
+  # ────────────────────────────────────────
   metabase:
     image: metabase/metabase:v0.56.6
     container_name: university-metabase
     restart: unless-stopped
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metastore
+      MB_DB_HOST: postgres
+      MB_DB_PORT: 5432
+      MB_DB_USER: hive
+      MB_DB_PASS: hive
 
+  # ────────────────────────────────────────
+  # 9. POSTGRES (pour Airflow)
+  # ────────────────────────────────────────
   airflow-postgres:
     image: postgres:13
     container_name: airflow-postgres
@@ -92,12 +174,23 @@ services:
       POSTGRES_DB: airflow
     ports:
       - "5433:5432"
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ────────────────────────────────────────
+  # 10. AIRFLOW INIT (Création du compte admin)
+  # ────────────────────────────────────────
   airflow-init:
     image: apache/airflow:2.10.0-python3.11
     container_name: airflow-init
     depends_on:
-      - airflow-postgres
+      airflow-postgres:
+        condition: service_healthy
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
     command: >
@@ -111,13 +204,22 @@ services:
       --role Admin
       --email admin@example.com
       "
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
 
+  # ────────────────────────────────────────
+  # 11. AIRFLOW WEBSERVER (UI)
+  # ────────────────────────────────────────
   airflow-webserver:
     image: apache/airflow:2.10.0-python3.11
     container_name: airflow-webserver
     restart: unless-stopped
     depends_on:
-      - airflow-postgres
+      airflow-postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
@@ -127,14 +229,25 @@ services:
       - ./src:/opt/airflow/src
     command: webserver
     ports:
-      - "8081:8080"
+      - "8081:8080"   # UI Airflow (accessible sur http://localhost:8081)
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
+  # ────────────────────────────────────────
+  # 12. AIRFLOW SCHEDULER
+  # ────────────────────────────────────────
   airflow-scheduler:
     image: apache/airflow:2.10.0-python3.11
     container_name: airflow-scheduler
     restart: unless-stopped
     depends_on:
-      - airflow-postgres
+      airflow-postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
@@ -144,7 +257,12 @@ services:
       - ./src:/opt/airflow/src
     command: scheduler
 
+# ────────────────────────────────────────
+# VOLUMES PERSISTANTS
+# ────────────────────────────────────────
 volumes:
   minio_data:
   postgres_data:
   elasticsearch_data:
+  qdrant_data:
+  airflow_postgres_data:
