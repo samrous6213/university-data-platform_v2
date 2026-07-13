@@ -67,7 +67,9 @@ services:
   # 4. SPARK MASTER (Chef)
   # ────────────────────────────────────────
   spark-master:
-    image: apache/spark:3.5.1
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark-master
     restart: unless-stopped
     volumes:
@@ -77,8 +79,8 @@ services:
       /opt/spark/bin/spark-class
       org.apache.spark.deploy.master.Master
     ports:
-      - "7077:7077"   # Communication avec les workers
-      - "8080:8080"   # UI Web (accessible sur http://localhost:8080)
+      - "7077:7077"
+      - "8080:8080"
     environment:
       SPARK_MASTER_HOST: spark-master
 
@@ -86,7 +88,9 @@ services:
   # 5. SPARK WORKER (Esclave)
   # ────────────────────────────────────────
   spark-worker:
-    image: apache/spark:3.5.1
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark-worker
     restart: unless-stopped
     depends_on:
@@ -102,7 +106,7 @@ services:
       SPARK_WORKER_CORES: 2
       SPARK_WORKER_MEMORY: 2g
     ports:
-      - "8082:8081"   # UI Web (accessible sur http://localhost:8082)
+      - "8082:8081"
 
   # ────────────────────────────────────────
   # 6. ELASTICSEARCH (Recherche plein-texte)

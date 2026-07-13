@@ -1,0 +1,16 @@
+FROM apache/spark:3.5.1
+
+USER root
+
+RUN pip3 install --no-cache-dir \
+    PyMuPDF \
+    python-docx \
+    python-pptx \
+    pandas \
+    openpyxl \
+    minio \
+    beautifulsoup4 \
+    lxml
+    Pillow
+
+USER spark
