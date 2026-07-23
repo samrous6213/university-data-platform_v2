@@ -8,6 +8,7 @@ import logging
 
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, length
+from pyspark.sql.types import StringType
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +16,13 @@ REQUIRED_FIELDS = ["record_id", "source_system", "raw_object_path", "crawl_times
 MIN_TEXT_LENGTH = 30  # en dessous, on considere la page trop pauvre pour etre exploitable
 
 
-def _null_or_empty(colname: str):
-    return col(colname).isNull() | (col(colname) == "")
+def _null_or_empty(df: DataFrame, colname: str):
+    field = df.schema[colname]
+
+    if isinstance(field.dataType, StringType):
+        return col(colname).isNull() | (col(colname) == "")
+
+    return col(colname).isNull()
 
 
 def split_valid_and_quarantine(df: DataFrame, text_col: str = "normalized_text") -> tuple[DataFrame, DataFrame]:
@@ -29,7 +35,7 @@ def split_valid_and_quarantine(df: DataFrame, text_col: str = "normalized_text")
     """
     quarantine_condition = None
     for field in REQUIRED_FIELDS:
-        cond = _null_or_empty(field)
+        cond = _null_or_empty(df, field)
         quarantine_condition = cond if quarantine_condition is None else (quarantine_condition | cond)
 
     if text_col in df.columns:
@@ -37,6 +43,14 @@ def split_valid_and_quarantine(df: DataFrame, text_col: str = "normalized_text")
             col(text_col).isNull() | (length(col(text_col)) < MIN_TEXT_LENGTH)
         )
 
+    df.select(
+    "record_id",
+    "source_system",
+    "raw_object_path",
+    "crawl_timestamp",
+    "normalized_text"
+    ).show(truncate=False)
+    df.select(quarantine_condition.alias("is_quarantine")).show()
     df_quarantine = df.filter(quarantine_condition)
     df_valid = df.filter(~quarantine_condition)
 

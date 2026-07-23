@@ -33,7 +33,12 @@ RAW_DOCUMENTS_BUCKET = "raw-documents"
 RAW_LOGS_BUCKET = "raw-logs"
 
 # ── Hive Metastore ───────────────────────────────────────────────────────
-HIVE_METASTORE_URI = os.getenv("HIVE_METASTORE_URI", "thrift://hive-metastore:9083")
+# FIX : "hive-metastore" (nom de service docker-compose) n'est resoluble que
+# DANS le reseau Docker. Le job Spark tourne ici nativement sous Windows
+# (.venv), donc le nom d'hote doit etre "localhost" (ou l'IP de la machine
+# Docker si WSL2/Docker Desktop expose differemment), a condition que le
+# port 9083 soit bien mappe dans docker-compose.yml (ports: "9083:9083").
+HIVE_METASTORE_URI = os.getenv("HIVE_METASTORE_URI", "thrift://localhost:9083")
 
 # ── Hudi : chemin de base par table curated ─────────────────────────────
 HUDI_WAREHOUSE_PATH = os.getenv("HUDI_WAREHOUSE_PATH", "s3a://curated/hudi")

@@ -47,7 +47,14 @@ def get_spark_session(app_name: str | None = None) -> SparkSession:
         )
         .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
         # ── Hive Metastore ──
-        .config("hive.metastore.uris", HIVE_METASTORE_URI)
+        # FIX : "hive.metastore.uris" seul est ignore par Spark ("Ignoring
+        # non-Spark config property"). Le prefixe spark.hadoop. est
+        # obligatoire pour que Spark relaie la cle a la conf Hadoop/Hive
+        # sous-jacente -> sans lui, Spark bascule silencieusement sur un
+        # metastore Derby embarque local, d'ou le SessionHiveMetaStoreClient
+        # qui echoue a s'instancier (rien a voir avec MinIO/S3A).
+        .config("spark.hadoop.hive.metastore.uris", HIVE_METASTORE_URI)
+        .config("spark.sql.warehouse.dir", "s3a://curated/hudi")
         .enableHiveSupport()
     )
 

@@ -20,7 +20,7 @@ from src.transformations.spark.transforms.quality_checks import (
     split_valid_and_quarantine,
     write_quarantine,
 )
-from src.lakehouse.hudi_writer import upsert_to_hudi
+from src.lakehouse.hudi.hudi_writer import upsert_to_hudi
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +36,13 @@ def run_faculty_pipeline(spark: SparkSession) -> dict:
         df_openalex = None
 
     df_curated = transform_faculty_profiles(df_web, df_openalex)
-
+    df_curated.printSchema()
+    df_curated.show(5, truncate=False)
+    print("Curated :", df_curated.count())
     df_valid, df_quarantine = split_valid_and_quarantine(df_curated)
     quarantine_count = df_quarantine.count()
+    print("Valid :", df_valid.count())
+    print("Quarantine :", df_quarantine.count())
     if quarantine_count > 0:
         write_quarantine(
             df_quarantine, RAW_LOGS_BUCKET,
@@ -46,8 +50,15 @@ def run_faculty_pipeline(spark: SparkSession) -> dict:
         )
 
     df_dedup, duplicates_dropped = deduplicate_on_record_id(df_valid)
+    print("Dedup :", df_dedup.count())
+
+    print("Avant Hudi :", df_dedup.count())
+    df_dedup.printSchema()
+    df_dedup.show(5, truncate=False)
 
     records_written = upsert_to_hudi(df_dedup, "faculty_profiles")
+
+    
 
     return {
         "records_read": records_read,

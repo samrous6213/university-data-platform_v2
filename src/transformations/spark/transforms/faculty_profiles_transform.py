@@ -91,8 +91,10 @@ def transform_faculty_profiles(df_web: DataFrame, df_openalex: DataFrame | None 
     if "raw_object_path" not in df.columns:
         df = df.withColumn("raw_object_path", coalesce(col("html_object_path"), col("json_object_path")))
 
+    df = df.withColumnRenamed("content_checksum", "content_hash")
+
     df = normalize_text_column(df, source_col="extracted_text", target_col="normalized_text")
-    df = add_record_id(df, url_col="source_url", hash_col="content_checksum")
+    df = add_record_id(df, url_col="source_url", hash_col="content_hash")
     df = add_language(df, text_col="normalized_text")
     df = add_is_deleted_flag(df)
 
@@ -123,7 +125,6 @@ def transform_faculty_profiles(df_web: DataFrame, df_openalex: DataFrame | None 
         "research_areas", "email", "profile_url", "openalex_institution_id",
         "publication_count", "normalized_text",
     ]
-    df = df.withColumnRenamed("content_checksum", "content_hash")
     df = df.select(*final_columns)
 
     logger.info("Transformation faculty_profiles terminee : %s lignes", df.count())

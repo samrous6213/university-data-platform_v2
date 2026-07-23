@@ -11,6 +11,7 @@ from pyspark.sql import DataFrame
 from configs.spark_config import HUDI_TABLES, MAX_WRITE_RETRIES, RETRY_BACKOFF_FACTOR
 from src.transformations.spark.utils.retry import retry
 
+from configs.spark_config import HIVE_METASTORE_URI
 logger = logging.getLogger(__name__)
 
 _HUDI_OPTIONS_BASE = {
@@ -38,6 +39,8 @@ def _build_options(table_name: str) -> dict:
         "hoodie.datasource.write.partitionpath.field": table_conf["partitionpath_field"],
         "hoodie.datasource.hive_sync.table": table_name,
         "hoodie.datasource.hive_sync.partition_fields": table_conf["partitionpath_field"],
+        "hoodie.datasource.hive_sync.metastore.uris": HIVE_METASTORE_URI,
+        "hoodie.datasource.hive_sync.database": "default",
     }
 
 
