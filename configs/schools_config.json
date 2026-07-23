@@ -1,0 +1,24 @@
+{
+  "schools": [
+    {
+      "id": "faculty_fstm",
+      "name": "Faculté des Sciences et Techniques de Mohammedia",
+      "base_url": "https://www.fstm.ac.ma/"
+    },
+    {
+      "id": "faculty_enset",
+      "name": "École Normale Supérieure de l'Enseignement Technique de Mohammedia",
+      "base_url": "https://www.enset-media.ac.ma/"
+    },
+    {
+      "id": "faculty_ensam",
+      "name": "École Nationale Supérieure d'Arts et Métiers de Casablanca",
+      "base_url": "https://www.ensam-casa.ma/"
+    },
+    {
+      "id": "faculty_fsac",
+      "name": "Faculté des Sciences Aïn Chock",
+      "base_url": "https://fsac.univh2c.ma/front/index.html"
+    }
+  ]
+}
