@@ -1,171 +1,183 @@
-import requests
-import hashlib
-import PyPDF2
-import re
-from io import BytesIO
-from datetime import datetime
+"""
+Ingestion documents/fichiers -> MinIO (zone raw).
+Source : Portail Open Data du Maroc (data.gov.ma), plateforme CKAN.
+"""
 
-# Utilisation de ton client
+import hashlib
+import json
+import logging
+import sys
+import uuid
+from datetime import datetime
+from pathlib import Path
+
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 from src.storage.minio.ayoub_client import MinIOClient
 
-# Désactiver les avertissements SSL si nécessaire
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# ─── Paramètres ─────────────────────────────────────────────
+CONNECTOR_VERSION = "1.0.1"
+SOURCE_NAME = "data_gov_ma"
 
+CKAN_BASE_URL = "https://data.gov.ma/data/api/3/action"
 
-def calculate_checksum(content: bytes) -> str:
-    """Calculate SHA-256 checksum of content."""
-    return hashlib.sha256(content).hexdigest()
+RAW_DOCUMENTS_BUCKET = "raw-documents"
+RAW_JSON_BUCKET = "raw-json"
+LOG_BUCKET = "raw-logs"
 
+DATASET_IDS = [
+    "universites-marocaines-2014",
+    "etablissements-de-l-enseignement-superieur-universitaire-public-ouverts",
+]
 
-def extract_links_from_pdf(pdf_content: bytes) -> list:
-    """Extract all URLs from PDF content."""
-    try:
-        text = pdf_content.decode('utf-8', errors='ignore')
-        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
-        urls = re.findall(url_pattern, text)
-        unique_urls = list(set([url.strip() for url in urls if url.strip()]))
-        valid_urls = [url for url in unique_urls if len(url) > 10 and '.' in url]
-        return valid_urls
-    except Exception as e:
-        print(f"Warning: Could not extract links from PDF: {e}")
-        return []
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(exist_ok=True)
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_DIR / f"ingestion_datagovma_{datetime.now():%Y%m%d}.log", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout),
+    ],
+)
+logger = logging.getLogger(SOURCE_NAME)
 
-def extract_pdf_metadata(pdf_content: bytes) -> dict:
-    """Extract metadata from PDF file."""
-    metadata = {
-        "title": "", "author": "", "subject": "",
-        "keywords": "", "creator": "", "producer": "", "num_pages": 0
-    }
-    try:
-        pdf_reader = PyPDF2.PdfReader(BytesIO(pdf_content))
-        metadata["num_pages"] = len(pdf_reader.pages)
-        if pdf_reader.metadata:
-            if pdf_reader.metadata.get("/Title"): metadata["title"] = pdf_reader.metadata.get("/Title")
-            if pdf_reader.metadata.get("/Author"): metadata["author"] = pdf_reader.metadata.get("/Author")
-            if pdf_reader.metadata.get("/Subject"): metadata["subject"] = pdf_reader.metadata.get("/Subject")
-            if pdf_reader.metadata.get("/Keywords"): metadata["keywords"] = pdf_reader.metadata.get("/Keywords")
-            if pdf_reader.metadata.get("/Creator"): metadata["creator"] = pdf_reader.metadata.get("/Creator")
-            if pdf_reader.metadata.get("/Producer"): metadata["producer"] = pdf_reader.metadata.get("/Producer")
-    except Exception as e:
-        print(f"[INFO] Could not extract embedded PDF metadata: {e}")
-    return metadata
+def build_session(max_retries: int = 5) -> requests.Session:
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=max_retries,
+        backoff_factor=2,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
+def calculate_sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
-def download_file(url: str, session: requests.Session) -> tuple:
-    """Download file from URL, following redirects."""
-    response = session.get(url, timeout=60, verify=False, stream=True)
+def fetch_package(session: requests.Session, package_id: str) -> dict:
+    response = session.get(f"{CKAN_BASE_URL}/package_show", params={"id": package_id}, timeout=30)
+    response.raise_for_status()
+    payload = response.json()
+    if not payload.get("success"):
+        raise RuntimeError(f"CKAN a renvoyé success=false pour '{package_id}': {payload.get('error')}")
+    return payload["result"]
+
+def download_resource(session: requests.Session, resource_url: str) -> tuple[bytes, int]:
+    response = session.get(resource_url, timeout=60)
     response.raise_for_status()
     return response.content, response.status_code
 
+def ingest_dataset(client: MinIOClient, session: requests.Session, package_id: str) -> dict:
+    logger.info("Début ingestion dataset='%s'", package_id)
 
-def run(document_url: str, source_name: str = "datagov"):
-    """Main function to download and store document from Data.gov.ma."""
-    
-    client = MinIOClient(endpoint="localhost:9000")
     now = datetime.now()
-    timestamp = now.strftime("%Y%m%d_%H%M%S")
-    
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (compatible; Datagov downloader/1.0)",
-    })
-    
-    status = 500
-    file_name = document_url.split("/")[-1]
-    
-    # Sécurité au cas où l'URL n'a pas d'extension claire
-    if not (file_name.endswith('.pdf') or file_name.endswith('.csv') or file_name.endswith('.json') or file_name.endswith('.xls') or file_name.endswith('.xlsx')):
-        file_name = f"dataset_datagov_{timestamp}.xls"
-        
-    is_pdf = file_name.lower().endswith('.pdf')
-    all_links = []
-    metadata = {"num_pages": 0, "title": file_name, "author": "Data.gov.ma"}
-    
-    try:
-        # 1. Download document
-        print(f"[1/6] Downloading from: {document_url}")
-        file_content, status = download_file(document_url, session)
-        print(f"      Download successful. Size: {len(file_content)} bytes")
-        
-        # 2. Calculate checksum
-        print("[2/6] Calculating checksum...")
-        checksum = calculate_checksum(file_content)
-        print(f"      Checksum (SHA-256): {checksum[:16]}...")
-        
-        # 3 & 4. Extract metadata and links (Seulement si c'est un PDF)
-        if is_pdf:
-            print("[3/6] Extracting PDF metadata...")
-            metadata = extract_pdf_metadata(file_content)
-            print("[4/6] Extracting links from PDF...")
-            all_links = extract_links_from_pdf(file_content)
-        else:
-            print("[3/6] Not a PDF. Skipping PDF metadata extraction...")
-            print("[4/6] Not a PDF. Skipping link extraction...")
-            
-        # 5. Upload Document to MinIO
-        print("[5/6] Uploading Document to MinIO...")
-        file_object_name = f"raw/documents/{source_name}/{file_name}"
-        
-        # Déterminer le bon Content-Type
-        content_type = "application/pdf" if is_pdf else "application/vnd.ms-excel"
-        
-        client.upload_binary(
-            bucket_name="data-lake",
-            object_name=file_object_name,
-            data=file_content,
-            content_type=content_type,
-        )
-        print(f"      Uploaded to: {file_object_name}")
-        
-        # 6. Upload metadata, links, and logs
-        print("[6/6] Saving metadata, links, and logs...")
-        
-        metadata_record = {
-            "source": source_name,
-            "source_url": document_url,
-            "file_name": file_name,
-            "file_size": len(file_content),
-            "checksum": checksum,
-            "download_timestamp": now.isoformat(),
-            "document_metadata": metadata,
-            "extracted_links": all_links,
-            "total_links_found": len(all_links),
-            "storage_path": file_object_name
-        }
-        
-        metadata_object_name = f"raw/metadata/{source_name}/metadata_{timestamp}.json"
-        client.upload_json(
-            bucket_name="data-lake",
-            object_name=metadata_object_name,
-            data=metadata_record
-        )
-        
-        log = {
-            "source": source_name,
-            "operation": "download",
-            "status": status,
-            "source_url": document_url,
-            "file_name": file_name,
-            "file_size": len(file_content),
-            "checksum": checksum,
-            "timestamp": now.isoformat()
-        }
-        
-        log_object_name = f"raw/logs/{source_name}/download_{timestamp}.json"
-        client.upload_json(bucket_name="data-lake", object_name=log_object_name, data=log)
-        
-        print("\n" + "="*60)
-        print("SUCCESS! Data.gov.ma document processing completed.")
-        print("="*60)
-        
-    except Exception as e:
-        print(f"\n[ERROR] An unexpected error occurred: {e}")
+    year_str, month_str, day_str = now.strftime("%Y"), now.strftime("%m"), now.strftime("%d")
+    timestamp_str = now.isoformat()
+    ingestion_id = str(uuid.uuid4())
 
+    resources_ingested = 0
+    resources_failed = 0
+    error_message = None
+
+    try:
+        package = fetch_package(session, package_id)
+        resources = package.get("resources", [])
+
+        package_object_name = (
+            f"source={SOURCE_NAME}/entity={package_id}/"
+            f"year={year_str}/month={month_str}/day={day_str}/package_metadata.json"
+        )
+        
+        # CORRECTION ICI : Retrait de l'argument metadata non supporté par ayoub_client
+        client.upload_json(
+            bucket_name=RAW_JSON_BUCKET,
+            object_name=package_object_name,
+            data=package
+        )
+
+        for resource in resources:
+            resource_id = resource.get("id", "unknown")
+            resource_url = resource.get("url")
+            resource_format = (resource.get("format") or "").strip().lower()
+
+            if not resource_url:
+                continue
+
+            try:
+                content, status = download_resource(session, resource_url)
+                content_hash = calculate_sha256(content)
+                filename = resource_url.rstrip("/").split("/")[-1] or f"{resource_id}.bin"
+                bucket = RAW_JSON_BUCKET if resource_format == "json" else RAW_DOCUMENTS_BUCKET
+
+                object_name = (
+                    f"source={SOURCE_NAME}/entity={package_id}/"
+                    f"year={year_str}/month={month_str}/day={day_str}/"
+                    f"{content_hash[:10]}_{filename}"
+                )
+
+                # CORRECTION ICI : Retrait de l'argument metadata non supporté par ayoub_client
+                client.upload_binary(
+                    bucket_name=bucket,
+                    object_name=object_name,
+                    data=content,
+                    content_type=resource.get("mimetype") or "application/octet-stream"
+                )
+                resources_ingested += 1
+
+            except Exception as e:
+                resources_failed += 1
+                logger.exception("Échec ressource dataset=%s resource=%s : %s", package_id, resource_id, e)
+
+    except Exception as e:
+        error_message = str(e)
+        logger.exception("Erreur critique dataset='%s' : %s", package_id, error_message)
+
+    finally:
+        log_payload = {
+            "ingestion_id": ingestion_id,
+            "source": SOURCE_NAME,
+            "dataset_id": package_id,
+            "timestamp": timestamp_str,
+            "resources_ingested": resources_ingested,
+            "resources_failed": resources_failed,
+            "error": error_message,
+            "connector_version": CONNECTOR_VERSION,
+        }
+        log_object_name = (
+            f"source={SOURCE_NAME}/entity={package_id}/"
+            f"year={year_str}/month={month_str}/day={day_str}/run_{ingestion_id}.json"
+        )
+        client.upload_json(bucket_name=LOG_BUCKET, object_name=log_object_name, data=log_payload)
+
+    return {
+        "dataset_id": package_id,
+        "resources_ingested": resources_ingested,
+        "resources_failed": resources_failed,
+        "error": error_message,
+    }
+
+def run(dataset_ids: list[str]) -> dict:
+    session = build_session()
+    client = MinIOClient()
+    summaries = [ingest_dataset(client, session, pkg_id) for pkg_id in dataset_ids]
+    total_failed = sum(1 for s in summaries if s["error"] or s["resources_failed"] > 0)
+    result = {"summaries": summaries, "datasets_with_errors": total_failed}
+    if total_failed:
+        raise RuntimeError(f"Ingestion data.gov.ma terminée avec erreurs : {result}")
+    return result
+
+def main() -> None:
+    try:
+        run(DATASET_IDS)
+    except RuntimeError:
+        sys.exit(1)
 
 if __name__ == "__main__":
-    # TON VRAI LIEN OFFICIEL !
-    DOCUMENT_URL = "https://data.gov.ma/data/fr/dataset/d4589781-4f02-4fbf-9317-2088b315fa97/resource/df6bb4cc-b694-4520-9637-69700e52817f/download/etab-ensprimaire-public-men-2013-2014-2.xls"
-    
-    run(DOCUMENT_URL, source_name="datagov")
+    main()

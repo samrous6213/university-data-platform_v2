@@ -14,29 +14,32 @@ services:
     volumes:
       - minio_data:/data
 
-  postgres:
-    image: postgres:13
-    container_name: university-postgres
+  hive-db:
+    image: mariadb:10.5
+    container_name: university-hivedb
     restart: unless-stopped
     environment:
-      POSTGRES_DB: metastore
-      POSTGRES_USER: hive
-      POSTGRES_PASSWORD: hive
+      MYSQL_DATABASE: metastore
+      MYSQL_USER: hive
+      MYSQL_PASSWORD: hive
+      MYSQL_ROOT_PASSWORD: admin
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - hive_db_data:/var/lib/mysql
 
   hive-metastore:
     image: bitsondatadev/hive-metastore:latest
     container_name: hive-metastore
     restart: unless-stopped
     environment:
-      DB_DRIVER: postgres
+      METASTORE_DB_HOSTNAME: hive-db
     depends_on:
-      - postgres
+      - hive-db
     ports:
       - "9083:9083"
+    volumes:
+      - ./conf/metastore-site.xml:/opt/apache-hive-metastore-3.0.0-bin/conf/metastore-site.xml:ro
 
   spark-master:
     image: apache/spark:3.5.1
@@ -78,7 +81,7 @@ services:
     container_name: university-metabase
     restart: unless-stopped
     depends_on:
-      - postgres
+      - hive-db
     ports:
       - "3000:3000"
 
@@ -147,4 +150,5 @@ services:
 volumes:
   minio_data:
   postgres_data:
+  hive_db_data:
   elasticsearch_data:
