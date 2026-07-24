@@ -58,6 +58,32 @@ services:
       - ./jdbc/postgresql-42.7.3.jar:/opt/hive/lib/postgres.jar:ro
       - ./configs/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
       - hive_warehouse:/opt/hive/data/warehouse
+  #hive-server2:
+   # image: apache/hive:4.0.0
+    #container_name: hive-server2
+    #restart: unless-stopped
+    #depends_on:
+    #  - hive-metastore
+    #environment:
+    #  SERVICE_NAME: hiveserver2
+     # IS_RESUME: "true"
+      #HADOOP_CLASSPATH: "/opt/hadoop/share/hadoop/tools/lib/*"
+      # Le fix urandom accélère la génération de sessions en Java et évite le gel du bind TCP
+      #SERVICE_OPTS: >-
+       # -Dhive.metastore.uris=thrift://hive-metastore:9083
+        #-Djava.security.egd=file:/dev/./urandom
+      #AWS_ACCESS_KEY_ID: minioadmin
+      #AWS_SECRET_ACCESS_KEY: minioadmin
+    #ports:
+     # - "10000:10000"
+      #- "10002:10002"
+    #volumes:
+     # - ./jdbc/postgresql-42.7.3.jar:/opt/hive/lib/postgres.jar:ro
+      #- ./configs/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      #- ./configs/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
+      # Monte le dossier de JARs pour que HiveServer2 accède au bundle Hudi (crée le dossier ./jars s'il n'existe pas)
+      #- ./jars:/opt/hive/auxlib:ro
+      #- hive_warehouse:/opt/hive/data/warehouse
 
   spark-master:
     image: apache/spark:3.5.1

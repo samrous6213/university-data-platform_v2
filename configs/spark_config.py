@@ -58,6 +58,33 @@ HUDI_TABLES = {
     },
 }
 
+# ── Postgres analytique (dashboard Metabase) ─────────────────────────────
+# Base separee ("analytics") sur la MEME instance Postgres que le Hive
+# Metastore (pas de nouveau conteneur/port). Ne jamais utiliser la base
+# "metastore" ici : ce sont les tables internes de Hive (TBLS, SDS, ...).
+# Spark tourne nativement (.venv), donc host = localhost, comme pour
+# HIVE_METASTORE_URI ci-dessus.
+POSTGRES_ANALYTICS_HOST = os.getenv("POSTGRES_ANALYTICS_HOST", "localhost")
+POSTGRES_ANALYTICS_PORT = os.getenv("POSTGRES_ANALYTICS_PORT", "5432")
+POSTGRES_ANALYTICS_DB = os.getenv("POSTGRES_ANALYTICS_DB", "analytics")
+POSTGRES_ANALYTICS_USER = os.getenv("POSTGRES_ANALYTICS_USER", "hive")
+POSTGRES_ANALYTICS_PASSWORD = os.getenv("POSTGRES_ANALYTICS_PASSWORD", "hive")
+
+POSTGRES_ANALYTICS_JDBC_URL = (
+    f"jdbc:postgresql://{POSTGRES_ANALYTICS_HOST}:{POSTGRES_ANALYTICS_PORT}/{POSTGRES_ANALYTICS_DB}"
+)
+
+# Chemin local vers le driver JDBC deja utilise par hive-metastore
+# (./jdbc/postgresql-42.7.3.jar). Charge dynamiquement dans le SparkContext
+# par postgres_writer.py, pas besoin de toucher spark_session.py.
+JDBC_DRIVER_JAR = os.getenv("JDBC_DRIVER_JAR", os.path.join("jdbc", "postgresql-42.7.3.jar"))
+
+# table curated Hudi -> table Postgres cible (meme nom pour l'instant)
+POSTGRES_TABLES = {
+    "faculty_profiles": "faculty_profiles",
+    "course_catalog": "course_catalog",
+}
+
 # ── Divers ────────────────────────────────────────────────────────────
 APP_NAME = "university-data-platform-transform"
 LOG_DIR = os.getenv("SPARK_LOG_DIR", "logs")

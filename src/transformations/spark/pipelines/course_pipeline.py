@@ -18,6 +18,7 @@ from src.transformations.spark.transforms.quality_checks import (
     write_quarantine,
 )
 from src.lakehouse.hudi.hudi_writer import upsert_to_hudi
+from src.lakehouse.postgres.postgres_writer import sync_to_postgres
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +41,16 @@ def run_course_pipeline(spark: SparkSession) -> dict:
 
     records_written = upsert_to_hudi(df_dedup, "course_catalog")
 
+    try:
+        records_synced_pg = sync_to_postgres(df_dedup, "course_catalog")
+    except Exception as e:
+        logger.error("Synchronisation Postgres (dashboard) echouee : %s", e)
+        records_synced_pg = 0
+
     return {
         "records_read": records_read,
         "records_written": records_written,
         "records_quarantined": quarantine_count,
         "duplicates_dropped": duplicates_dropped,
+        "records_synced_postgres": records_synced_pg,
     }
