@@ -34,12 +34,17 @@ def main() -> int:
             records_quarantined=summary["records_quarantined"],
             duplicates_dropped=summary["duplicates_dropped"],
         )
+    except Exception as log_err:
+        logger.warning("Pipeline reussi mais echec ecriture du run log : %s", log_err)
         logger.info("Job '%s' termine avec succes : %s", JOB_NAME, summary)
         return 0
 
     except Exception as e:
         logger.exception("Job '%s' en echec : %s", JOB_NAME, e)
-        write_run_log(job_name=JOB_NAME, run_id=run_id, status="failed", error=str(e))
+        try:
+            write_run_log(job_name=JOB_NAME, run_id=run_id, status="failed", error=str(e))
+        except Exception as log_err:
+            logger.warning("Echec pipeline ET echec ecriture du run log : %s", log_err)
         return 1
 
     finally:

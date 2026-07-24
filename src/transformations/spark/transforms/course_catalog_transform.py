@@ -34,7 +34,7 @@ def transform_course_catalog(df_web: DataFrame) -> DataFrame:
         df = df.withColumn("raw_object_path", coalesce(col("html_object_path"), col("json_object_path")))
 
     df = normalize_text_column(df, source_col="extracted_text", target_col="normalized_text")
-    df = add_record_id(df, url_col="source_url", hash_col="content_checksum")
+    df = add_record_id(df, url_col="source_url", hash_col="content_hash")
     df = add_language(df, text_col="normalized_text")
     df = add_is_deleted_flag(df)
 

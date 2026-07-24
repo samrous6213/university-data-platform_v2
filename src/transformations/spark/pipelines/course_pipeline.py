@@ -17,7 +17,7 @@ from src.transformations.spark.transforms.quality_checks import (
     split_valid_and_quarantine,
     write_quarantine,
 )
-from src.lakehouse.hudi_writer import upsert_to_hudi
+from src.lakehouse.hudi.hudi_writer import upsert_to_hudi
 
 logger = logging.getLogger(__name__)
 
