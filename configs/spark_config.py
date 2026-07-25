@@ -64,7 +64,7 @@ HUDI_TABLES = {
 # "metastore" ici : ce sont les tables internes de Hive (TBLS, SDS, ...).
 # Spark tourne nativement (.venv), donc host = localhost, comme pour
 # HIVE_METASTORE_URI ci-dessus.
-POSTGRES_ANALYTICS_HOST = os.getenv("POSTGRES_ANALYTICS_HOST", "localhost")
+POSTGRES_ANALYTICS_HOST = os.getenv("POSTGRES_ANALYTICS_HOST", "127.0.0.1")
 POSTGRES_ANALYTICS_PORT = os.getenv("POSTGRES_ANALYTICS_PORT", "5432")
 POSTGRES_ANALYTICS_DB = os.getenv("POSTGRES_ANALYTICS_DB", "analytics")
 POSTGRES_ANALYTICS_USER = os.getenv("POSTGRES_ANALYTICS_USER", "hive")
@@ -84,6 +84,18 @@ POSTGRES_TABLES = {
     "faculty_profiles": "faculty_profiles",
     "course_catalog": "course_catalog",
 }
+
+# ── Elasticsearch (index de recherche) ───────────────────────────────────
+# Meme logique que Postgres : Spark tourne nativement (.venv), donc host =
+# localhost (le port 9200 est mappe dans docker-compose.yml).
+ELASTICSEARCH_HOST = os.getenv("ELASTICSEARCH_HOST", "127.0.0.1")
+ELASTICSEARCH_PORT = int(os.getenv("ELASTICSEARCH_PORT", "9200"))
+ELASTICSEARCH_URL = f"http://{ELASTICSEARCH_HOST}:{ELASTICSEARCH_PORT}"
+
+# Un seul index pour les deux entites (faculty_profiles + course_catalog),
+# distinguees par le champ "entity_type" -- permet une recherche unifiee
+# (ex: chercher "intelligence artificielle" et trouver profils ET formations).
+ELASTICSEARCH_INDEX = os.getenv("ELASTICSEARCH_INDEX", "university_search")
 
 # ── Divers ────────────────────────────────────────────────────────────
 APP_NAME = "university-data-platform-transform"

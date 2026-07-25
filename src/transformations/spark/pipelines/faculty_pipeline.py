@@ -20,6 +20,7 @@ from src.transformations.spark.transforms.quality_checks import (
     split_valid_and_quarantine,
     write_quarantine,
 )
+from src.lakehouse.elasticsearch.es_writer import sync_to_elasticsearch
 from src.lakehouse.hudi.hudi_writer import upsert_to_hudi
 from src.lakehouse.postgres.postgres_writer import sync_to_postgres
 
@@ -65,10 +66,17 @@ def run_faculty_pipeline(spark: SparkSession) -> dict:
         logger.error("Synchronisation Postgres (dashboard) echouee : %s", e)
         records_synced_pg = 0
 
+    try:
+        records_synced_es = sync_to_elasticsearch(df_dedup, "faculty_profiles")
+    except Exception as e:
+        logger.error("Indexation Elasticsearch (recherche) echouee : %s", e)
+        records_synced_es = 0
+
     return {
         "records_read": records_read,
         "records_written": records_written,
         "records_quarantined": quarantine_count,
         "duplicates_dropped": duplicates_dropped,
         "records_synced_postgres": records_synced_pg,
+        "records_synced_elasticsearch": records_synced_es,
     }

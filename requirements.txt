@@ -17,6 +17,13 @@ minio==7.2.15
 # Search
 elasticsearch==8.17.2
 
+# Analytics DB (Metabase dashboard sync)
+psycopg2-binary==2.9.10
+
+# Search API
+fastapi==0.115.6
+uvicorn==0.34.0
+
 # Orchestration (optional - install separately)
 # apache-airflow==2.7.1
 
