@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+  <property>
+    <name>fs.s3a.impl</name>
+    <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
+  </property>
+  <property>
+    <name>fs.s3a.endpoint</name>
+    <value>${S3A_ENDPOINT}</value>
+  </property>
+  <property>
+    <name>fs.s3a.access.key</name>
+    <value>${S3A_ACCESS_KEY}</value>
+  </property>
+  <property>
+    <name>fs.s3a.secret.key</name>
+    <value>${S3A_SECRET_KEY}</value>
+  </property>
+  <property>
+    <name>fs.s3a.path.style.access</name>
+    <value>${S3A_PATH_STYLE_ACCESS}</value>
+  </property>
+  <property>
+    <name>fs.s3a.connection.ssl.enabled</name>
+    <value>${S3A_SSL_ENABLED}</value>
+  </property>
+  <property>
+    <name>fs.s3a.impl.disable.cache</name>
+    <value>${S3A_IMPL_DISABLE_CACHE}</value>
+  </property>
+  <property>
+    <name>fs.s3a.aws.credentials.provider</name>
+    <value>${S3A_CREDENTIALS_PROVIDER}</value>
+  </property>
+</configuration>

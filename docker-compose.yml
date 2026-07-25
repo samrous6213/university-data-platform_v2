@@ -45,18 +45,31 @@ services:
       retries: 5
 
   # ────────────────────────────────────────
-  # 3. HIVE METASTORE (Catalogue SQL)
+  # 3. HIVE METASTORE (Catalogue SQL / PostgreSQL)
   # ────────────────────────────────────────
   hive-metastore:
-    image: bitsondatadev/hive-metastore:latest
+    build:
+      context: ./scripts/hive/metastore
+      dockerfile: Dockerfile
     container_name: hive-metastore
     restart: unless-stopped
     environment:
-      DB_DRIVER: postgres
-      METASTORE_DB_HOST: postgres
+      METASTORE_DB_HOSTNAME: postgres
+      METASTORE_DB_PORT: "5432"
       METASTORE_DB_NAME: metastore
       METASTORE_DB_USER: hive
       METASTORE_DB_PASSWORD: hive
+      METASTORE_WAREHOUSE_DIR: /user/hive/warehouse
+      HIVE_METASTORE_PORT: "9083"
+      S3A_ENDPOINT: http://university-minio:9000
+      S3A_ACCESS_KEY: minioadmin
+      S3A_SECRET_KEY: minioadmin
+      S3A_PATH_STYLE_ACCESS: "true"
+      S3A_SSL_ENABLED: "false"
+      S3A_IMPL_DISABLE_CACHE: "true"
+      S3A_CREDENTIALS_PROVIDER: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,15 +77,65 @@ services:
       - "9083:9083"
 
   # ────────────────────────────────────────
-  # 4. SPARK MASTER (Chef)
+  # 4. HIVE SERVER (SQL endpoint / HiveServer2)
+  # ────────────────────────────────────────
+  hive-server:
+    build:
+      context: ./scripts/hive
+      dockerfile: Dockerfile.hive
+    container_name: university-hive-server
+    restart: unless-stopped
+    depends_on:
+      hive-metastore:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    environment:
+      SERVICE_NAME: hiveserver2
+      HIVE_SITE_CONF_hive_metastore_uris: thrift://hive-metastore:9083
+      HIVE_SITE_CONF_hive_metastore_warehouse_dir: /user/hive/warehouse
+      HIVE_SITE_CONF_hive_server2_thrift_port: "10000"
+      HIVE_SITE_CONF_hive_server2_webui_port: "10002"
+      HIVE_SITE_CONF_fs_s3a_endpoint: http://university-minio:9000
+      HIVE_SITE_CONF_fs_s3a_access_key: minioadmin
+      HIVE_SITE_CONF_fs_s3a_secret_key: minioadmin
+      HIVE_SITE_CONF_fs_s3a_path_style_access: "true"
+      HIVE_SITE_CONF_fs_s3a_connection_ssl_enabled: "false"
+      HIVE_SITE_CONF_fs_s3a_impl_disable_cache: "true"
+      HIVE_SITE_CONF_fs_s3a_aws_credentials_provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+      HIVE_SITE_CONF_hive_fetch_task_conversion: more
+      HIVE_SITE_CONF_hive_exec_mode_local_auto: "true"
+      HADOOP_HEAPSIZE: "2048"
+      S3A_ENDPOINT: http://university-minio:9000
+      S3A_ACCESS_KEY: minioadmin
+      S3A_SECRET_KEY: minioadmin
+      S3A_PATH_STYLE_ACCESS: "true"
+      S3A_SSL_ENABLED: "false"
+      S3A_IMPL_DISABLE_CACHE: "true"
+      S3A_CREDENTIALS_PROVIDER: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+
+  # ────────────────────────────────────────
+  # 5. SPARK MASTER (Chef)
   # ────────────────────────────────────────
   spark-master:
-    image: apache/spark:3.5.1
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark-master
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     volumes:
       - ./src:/opt/spark/work-dir/src
       - ./data:/opt/spark/work-dir/data
+      - ./scripts:/opt/spark/work-dir/scripts
+      - spark_home:/home/spark
     command: >
       /opt/spark/bin/spark-class
       org.apache.spark.deploy.master.Master
@@ -81,19 +144,28 @@ services:
       - "8080:8080"   # UI Web (accessible sur http://localhost:8080)
     environment:
       SPARK_MASTER_HOST: spark-master
+      PYSPARK_PYTHON: /usr/bin/python3
+      PYTHONPATH: /opt/spark/work-dir
 
   # ────────────────────────────────────────
-  # 5. SPARK WORKER (Esclave)
+  # 6. SPARK WORKER (Esclave)
   # ────────────────────────────────────────
   spark-worker:
-    image: apache/spark:3.5.1
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark-worker
     restart: unless-stopped
     depends_on:
       - spark-master
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     volumes:
       - ./src:/opt/spark/work-dir/src
       - ./data:/opt/spark/work-dir/data
+      - ./scripts:/opt/spark/work-dir/scripts
+      - spark_home:/home/spark
     command: >
       /opt/spark/bin/spark-class
       org.apache.spark.deploy.worker.Worker
@@ -101,11 +173,13 @@ services:
     environment:
       SPARK_WORKER_CORES: 2
       SPARK_WORKER_MEMORY: 2g
+      PYSPARK_PYTHON: /usr/bin/python3
+      PYTHONPATH: /opt/spark/work-dir
     ports:
       - "8082:8081"   # UI Web (accessible sur http://localhost:8082)
 
   # ────────────────────────────────────────
-  # 6. ELASTICSEARCH (Recherche plein-texte)
+  # 7. ELASTICSEARCH (Recherche plein-texte)
   # ────────────────────────────────────────
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
@@ -127,7 +201,7 @@ services:
       retries: 5
 
   # ────────────────────────────────────────
-  # 7. QDRANT (Recherche vectorielle / RAG)
+  # 8. QDRANT (Recherche vectorielle / RAG)
   # ────────────────────────────────────────
   qdrant:
     image: qdrant/qdrant:latest
@@ -142,7 +216,7 @@ services:
       QDRANT__SERVICE__GRPC_PORT: 6334
 
   # ────────────────────────────────────────
-  # 8. METABASE (BI / Dashboards)
+  # 9. METABASE (BI / Dashboards)
   # ────────────────────────────────────────
   metabase:
     image: metabase/metabase:v0.56.6
@@ -162,7 +236,7 @@ services:
       MB_DB_PASS: hive
 
   # ────────────────────────────────────────
-  # 9. POSTGRES (pour Airflow)
+  # 10. POSTGRES (pour Airflow)
   # ────────────────────────────────────────
   airflow-postgres:
     image: postgres:13
@@ -183,7 +257,7 @@ services:
       retries: 5
 
   # ────────────────────────────────────────
-  # 10. AIRFLOW INIT (Création du compte admin)
+  # 11. AIRFLOW INIT (Création du compte admin)
   # ────────────────────────────────────────
   airflow-init:
     image: apache/airflow:2.10.0-python3.11
@@ -209,7 +283,7 @@ services:
       - ./src:/opt/airflow/src
 
   # ────────────────────────────────────────
-  # 11. AIRFLOW WEBSERVER (UI)
+  # 12. AIRFLOW WEBSERVER (UI)
   # ────────────────────────────────────────
   airflow-webserver:
     image: apache/airflow:2.10.0-python3.11
@@ -237,7 +311,7 @@ services:
       retries: 5
 
   # ────────────────────────────────────────
-  # 12. AIRFLOW SCHEDULER
+  # 13. AIRFLOW SCHEDULER
   # ────────────────────────────────────────
   airflow-scheduler:
     image: apache/airflow:2.10.0-python3.11
@@ -258,6 +332,13 @@ services:
     command: scheduler
 
 # ────────────────────────────────────────
+# NETWORKS (no underscores in name to avoid Java URISyntaxException)
+# ────────────────────────────────────────
+networks:
+  default:
+    name: univnet
+
+# ────────────────────────────────────────
 # VOLUMES PERSISTANTS
 # ────────────────────────────────────────
 volumes:
@@ -266,3 +347,4 @@ volumes:
   elasticsearch_data:
   qdrant_data:
   airflow_postgres_data:
+  spark_home:

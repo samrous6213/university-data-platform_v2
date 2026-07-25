@@ -229,7 +229,7 @@ def _partition(faculty: str, url: str, now: datetime) -> str:
 def save_raw_html(source_name: str, url: str, html_content: str, page_type: str) -> None:
     """Version originale améliorée avec partition par année extraite de l'URL."""
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient()
         now = datetime.now()
         partition = _partition(source_name, url, now)
         url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
@@ -279,7 +279,7 @@ def save_image(image_url: str, source_name: str, image_name: str = None) -> bool
     if not is_valid_url(image_url):
         return False
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient()
         now = datetime.now()
         session = create_session()
         response = safe_request(session, image_url)
@@ -346,7 +346,7 @@ def save_document(document_url: str, source_name: str, document_name: str = None
     if not is_valid_url(document_url):
         return False
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient()
         now = datetime.now()
         session = create_session()
         response = safe_request(session, document_url)
@@ -402,7 +402,7 @@ def save_document(document_url: str, source_name: str, document_name: str = None
 def save_jsonld(source_name: str, url: str, json_data: dict, log_index: int, script_index: int, now: datetime) -> None:
     """Sauvegarde un bloc JSON-LD dans raw-json."""
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient()
         partition = _partition(source_name, url, now)
         object_name = f"{partition}/jsonld_{log_index}_{script_index}.json"
         client.upload_json(
@@ -416,7 +416,7 @@ def save_jsonld(source_name: str, url: str, json_data: dict, log_index: int, scr
 def save_logs(source_name: str, logs: list) -> None:
     """Sauvegarde les logs de crawling dans raw-logs."""
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient()
         now = datetime.now()
         partition = _partition(source_name, "https://placeholder", now)  # on utilise l'année courante
         object_name = f"{partition}/crawl_{now.strftime('%Y%m%d_%H%M%S')}.json"
@@ -433,7 +433,7 @@ def save_structured_data(source_name: str, data_type: str, data_list: list) -> i
     if not data_list:
         return 0
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient()
         partition = get_date_partition()
         timestamp = partition["timestamp"]
         unique_data = []
@@ -493,7 +493,7 @@ def save_structured_data(source_name: str, data_type: str, data_list: list) -> i
 def save_consolidated_data(all_news: list, all_faculty: list) -> None:
     """Version inchangée."""
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient()
         partition = get_date_partition()
         timestamp = partition["timestamp"]
         if all_news:
@@ -549,7 +549,7 @@ def save_consolidated_data(all_news: list, all_faculty: list) -> None:
 def save_stats(source_name: str, stats: dict) -> None:
     """Version inchangée."""
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient()
         partition = get_date_partition()
         timestamp = partition["timestamp"]
         stats_report = {
@@ -970,7 +970,7 @@ def crawl_faculty_bfs(faculty_name: str, base_url: str, max_pages: int = 500) ->
     """
     logger.info(f"🚀 Démarrage du crawl BFS pour: {faculty_name} (Max {max_pages} pages)")
 
-    client = MinIOClient(endpoint="localhost:9000")
+    client = MinIOClient()
     now = datetime.now()
 
     visited_pages = set()

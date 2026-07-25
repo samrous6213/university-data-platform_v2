@@ -1,0 +1,71 @@
+# =============================================================================
+# Dockerfile.spark — Apache Spark 3.5.1 + Hudi 0.15.0 + S3A (MinIO)
+# =============================================================================
+#
+# Adds the following JARs into the stock Spark 3.5.1 image:
+#   1. hudi-spark3.5-bundle_2.12-0.15.0.jar  (Hudi support)
+#   2. hadoop-aws-3.3.4.jar                  (S3AFileSystem)
+#   3. aws-java-sdk-bundle-1.12.262.jar      (AWS SDK required by hadoop-aws)
+#
+# Compatibility matrix:
+#   Spark 3.5.1  → bundles Hadoop 3.3.4
+#   Hudi 0.15.0  → built for Spark 3.5 / Scala 2.12
+#   hadoop-aws   → must match bundled Hadoop minor (3.3.x)
+#   aws-java-sdk → must match the version expected by hadoop-aws 3.3.4
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Stage 1: download JARs
+# ---------------------------------------------------------------------------
+FROM alpine:3.20 AS downloader
+
+ARG HUDI_VERSION=0.15.0
+ARG HADOOP_VERSION=3.3.4
+ARG AWS_SDK_VERSION=1.12.262
+
+RUN apk add --no-cache curl
+
+WORKDIR /jars
+
+# Hudi Spark 3.5 bundle (shaded — single JAR, no transitive deps needed)
+RUN curl -fSL \
+      "https://repo1.maven.org/maven2/org/apache/hudi/hudi-spark3.5-bundle_2.12/${HUDI_VERSION}/hudi-spark3.5-bundle_2.12-${HUDI_VERSION}.jar" \
+      -o "hudi-spark3.5-bundle_2.12-${HUDI_VERSION}.jar"
+
+# Hadoop AWS connector (provides org.apache.hadoop.fs.s3a.S3AFileSystem)
+RUN curl -fSL \
+      "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/${HADOOP_VERSION}/hadoop-aws-${HADOOP_VERSION}.jar" \
+      -o "hadoop-aws-${HADOOP_VERSION}.jar"
+
+# AWS Java SDK Bundle (required runtime dependency for hadoop-aws)
+RUN curl -fSL \
+      "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/${AWS_SDK_VERSION}/aws-java-sdk-bundle-${AWS_SDK_VERSION}.jar" \
+      -o "aws-java-sdk-bundle-${AWS_SDK_VERSION}.jar"
+
+# ---------------------------------------------------------------------------
+# Stage 2: final Spark image with all JARs pre-loaded
+# ---------------------------------------------------------------------------
+FROM apache/spark:3.5.1
+
+ARG HUDI_VERSION=0.15.0
+ARG HADOOP_VERSION=3.3.4
+ARG AWS_SDK_VERSION=1.12.262
+
+COPY --from=downloader /jars/*.jar /opt/spark/jars/
+
+ENV SPARK_HOME=/opt/spark
+ENV PATH=/opt/spark/bin:/opt/spark/sbin:${PATH}
+
+# ---------------------------------------------------------------------------
+# Install Python 3 runtime for Python ETL driver execution
+# ---------------------------------------------------------------------------
+USER root
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-pip && \
+    rm -rf /var/lib/apt/lists/* && \
+    ln -sf /usr/bin/python3 /usr/bin/python && \
+    echo "Verifying Spark installation..." && \
+    ls -la /opt/spark/bin/spark-submit && \
+    ls -la /opt/spark/bin/spark-class && \
+    ls -la /opt/spark/bin/pyspark && \
+    /opt/spark/bin/spark-submit --version 2>&1 || echo "(version check expected in non-submit context)"
+USER spark
