@@ -10,6 +10,7 @@ from src.transformations.transformers.publications_transformer import (
     transform_research_publications,
 )
 from src.transformations.utils.logger import get_logger
+from src.transformations.writers.es_writer import write_to_elasticsearch
 from src.transformations.writers.hudi_writer import write_hudi_table
 
 logger = get_logger(__name__)
@@ -35,6 +36,7 @@ def run_research_publications_etl(
 
     transformed = transform_research_publications(raw)
     write_hudi_table(transformed, RESEARCH_PUBLICATIONS_HUDI)
+    write_to_elasticsearch(transformed, "research_publications")
 
     final_count = transformed.count()
     logger.info("research_publications ETL complete", extra={"written_records": final_count, "table": "research_publications"})

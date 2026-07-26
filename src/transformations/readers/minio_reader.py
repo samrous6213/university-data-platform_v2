@@ -75,6 +75,8 @@ def read_json(
         )
 
         df = reader.load(path)
+        df.cache()
+        df.count()
 
         if df.isEmpty():
             logger.warning(f"No data found at {path}")
@@ -150,6 +152,7 @@ def read_raw_records(
         logger.warning("No records found from any source")
         return spark.createDataFrame([], schema=StructType([]))
 
+    unioned.cache()
     logger.info(
         f"Union complete",
         extra={"sources": len(source_prefixes), "matched": matched_count},

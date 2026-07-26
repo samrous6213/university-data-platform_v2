@@ -8,6 +8,7 @@ from src.transformations.transformers.documents_transformer import (
     transform_documents_registry,
 )
 from src.transformations.utils.logger import get_logger
+from src.transformations.writers.es_writer import write_to_elasticsearch
 from src.transformations.writers.hudi_writer import write_hudi_table
 
 logger = get_logger(__name__)
@@ -29,6 +30,7 @@ def run_documents_registry_etl(
 
     transformed = transform_documents_registry(raw)
     write_hudi_table(transformed, DOCUMENTS_REGISTRY_HUDI)
+    write_to_elasticsearch(transformed, "documents_registry")
 
     final_count = transformed.count()
     logger.info("documents_registry ETL complete", extra={"written_records": final_count, "table": "documents_registry"})

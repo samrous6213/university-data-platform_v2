@@ -44,8 +44,8 @@ class SparkConfig:
         return (
             builder
             .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-            .config("spark.executor.memory", "1536m")
-            .config("spark.sql.shuffle.partitions", "800")
+            .config("spark.executor.memory", "4g")
+            .config("spark.sql.shuffle.partitions", "4")
             .config("spark.sql.adaptive.enabled", "true")
             .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
             .config("spark.sql.adaptive.skewJoin.enabled", "true")

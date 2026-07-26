@@ -92,15 +92,9 @@ FIELD_MAPPINGS: Dict[str, Dict[str, str]] = {
 DEFAULT_FACULTY = "Général"
 DEFAULT_UNIVERSITY = "Université Cadi Ayyad"
 
-
-def _detect_source_system(df: DataFrame) -> str:
-    if "source_system" in df.columns:
-        first = df.select(F.first("source_system", ignorenulls=True)).collect()[0][0]
-        if first:
-            return str(first)
-    if "id" in df.columns:
-        return "openalex"
-    return "unknown"
+SOURCE_MAPPING = {
+    "openalex_authors": "openalex",
+}
 
 
 def _map_fields(df: DataFrame, source_system: str) -> DataFrame:
@@ -177,15 +171,16 @@ def _extract_first_last(df: DataFrame) -> DataFrame:
     return df
 
 
-def transform_faculty_profiles(df: DataFrame) -> DataFrame:
+def transform_faculty_profiles(df: DataFrame, source_name: str) -> DataFrame:
     if df.count() == 0:
         logger.warning("Empty input DataFrame, returning empty result")
         return df
 
-    source_system = _detect_source_system(df)
-    logger.info(f"Transforming faculty data from source_system={source_system}")
+    source_system = source_name
+    mapping_key = SOURCE_MAPPING.get(source_name, source_name)
+    logger.info(f"Transforming faculty data from source_system={source_system} (mapping_key={mapping_key})")
 
-    df = _map_fields(df, source_system)
+    df = _map_fields(df, mapping_key)
     df = _build_full_name(df)
     df = _extract_first_last(df)
 
@@ -213,8 +208,7 @@ def transform_faculty_profiles(df: DataFrame) -> DataFrame:
     else:
         df = df.withColumn("publications_count", F.lit(0).cast(IntegerType()))
 
-    if "source_system" not in df.columns:
-        df = df.withColumn("source_system", F.lit(source_system))
+    df = df.withColumn("source_system", F.lit(source_system))
 
     if "content_hash" not in df.columns:
         df = df.withColumn(

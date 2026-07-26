@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from pyspark.sql import DataFrame, SparkSession
+import pyspark.sql.functions as F
 
 from src.transformations.config.hudi_config import COURSE_CATALOG_HUDI
 from src.transformations.readers.minio_reader import (
@@ -14,6 +15,7 @@ from src.transformations.transformers.course_transformer import (
     transform_course_catalog,
 )
 from src.transformations.utils.logger import get_logger
+from src.transformations.writers.es_writer import write_to_elasticsearch
 from src.transformations.writers.hudi_writer import write_hudi_table
 
 logger = get_logger(__name__)
@@ -46,12 +48,16 @@ def run_course_catalog_etl(
 
     for prefix in all_prefixes:
         raw = read_json(spark, bucket, prefix=prefix)
+        if len(raw.columns) == 1 and "_corrupt_record" in raw.columns:
+            raw = read_json(spark, bucket, prefix=prefix, multi_line=True)
         matched = [f for f in COURSE_ARRAY_FIELDS if f in raw.columns]
-        if not matched:
-            continue
-        exploded = raw.selectExpr(f"inline_outer({matched[0]})", "input_file_name() as _source_file")
         source_name = extract_source_name(prefix)
-        tf = transform_course_catalog(exploded)
+        if matched:
+            exploded = raw.selectExpr(f"inline_outer({matched[0]})", "input_file_name() as _source_file")
+        else:
+            logger.info(f"No array field matched for source='{source_name}', treating as flat record")
+            exploded = raw.withColumn("_source_file", F.input_file_name())
+        tf = transform_course_catalog(exploded, source_name)
         count = tf.count()
         if count > 0:
             transformed_sources.append(tf)
@@ -68,7 +74,9 @@ def run_course_catalog_etl(
     for df in transformed_sources[1:]:
         combined = combined.unionByName(df, allowMissingColumns=True)
 
-    written_count = write_hudi_table(combined, COURSE_CATALOG_HUDI)
+    written_count =     write_hudi_table(combined, COURSE_CATALOG_HUDI)
+
+    write_to_elasticsearch(combined.dropDuplicates(["record_id"]), "course_catalog")
 
     raw_total = sum(source_record_counts.values())
     breakdown = ", ".join(

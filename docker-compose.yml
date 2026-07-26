@@ -267,8 +267,10 @@ services:
         condition: service_healthy
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      _PIP_ADDITIONAL_REQUIREMENTS: "docker requests beautifulsoup4 pdfplumber PyPDF2 minio elasticsearch python-dotenv"
     command: >
       bash -c "
+      pip install docker requests beautifulsoup4 pdfplumber PyPDF2 minio elasticsearch python-dotenv --quiet &&
       airflow db migrate &&
       airflow users create
       --username admin
@@ -281,6 +283,7 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
+      - /var/run/docker.sock:/var/run/docker.sock
 
   # ────────────────────────────────────────
   # 12. AIRFLOW WEBSERVER (UI)
@@ -297,10 +300,12 @@ services:
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _PIP_ADDITIONAL_REQUIREMENTS: "docker requests beautifulsoup4 pdfplumber PyPDF2 minio elasticsearch python-dotenv"
       PYTHONPATH: /opt/airflow
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
+      - /var/run/docker.sock:/var/run/docker.sock
     command: webserver
     ports:
       - "8081:8080"   # UI Airflow (accessible sur http://localhost:8081)
@@ -325,10 +330,12 @@ services:
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _PIP_ADDITIONAL_REQUIREMENTS: "docker requests beautifulsoup4 pdfplumber PyPDF2 minio elasticsearch python-dotenv"
       PYTHONPATH: /opt/airflow
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
+      - /var/run/docker.sock:/var/run/docker.sock
     command: scheduler
 
 # ────────────────────────────────────────

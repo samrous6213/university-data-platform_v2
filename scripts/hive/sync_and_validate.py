@@ -13,11 +13,11 @@ MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 
 MVP_TABLES: List[Dict[str, str]] = [
-    {"name": "faculty_profiles",        "path": "s3a://hudi-curated/faculty_profiles",        "partition_field": "faculty"},
-    {"name": "course_catalog",          "path": "s3a://hudi-curated/course_catalog",          "partition_field": ""},
-    {"name": "university_news",         "path": "s3a://hudi-curated/university_news",         "partition_field": "faculty"},
-    {"name": "research_publications",   "path": "s3a://hudi-curated/research_publications",   "partition_field": ""},
-    {"name": "documents_registry",      "path": "s3a://hudi-curated/documents_registry",      "partition_field": ""},
+    {"name": "faculty_profiles",        "path": "s3a://hudi-curated/faculty_profiles",        "partition_field": "source_system"},
+    {"name": "course_catalog",          "path": "s3a://hudi-curated/course_catalog",          "partition_field": "source_system"},
+    {"name": "university_news",         "path": "s3a://hudi-curated/university_news",         "partition_field": "source_system"},
+    {"name": "research_publications",   "path": "s3a://hudi-curated/research_publications",   "partition_field": "source_system"},
+    {"name": "documents_registry",      "path": "s3a://hudi-curated/documents_registry",      "partition_field": "source_system"},
 ]
 
 HIVE_SYNC_OPTIONS: Dict[str, str] = {

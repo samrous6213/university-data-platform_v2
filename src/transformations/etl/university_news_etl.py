@@ -12,6 +12,7 @@ from src.transformations.transformers.news_transformer import (
     transform_university_news,
 )
 from src.transformations.utils.logger import get_logger
+from src.transformations.writers.es_writer import write_to_elasticsearch
 from src.transformations.writers.hudi_writer import write_hudi_table
 
 logger = get_logger(__name__)
@@ -37,6 +38,7 @@ def run_university_news_etl(
 
     transformed = transform_university_news(raw)
     write_hudi_table(transformed, UNIVERSITY_NEWS_HUDI)
+    write_to_elasticsearch(transformed, "university_news")
 
     final_count = transformed.count()
     logger.info("university_news ETL complete", extra={"written_records": final_count, "table": "university_news"})

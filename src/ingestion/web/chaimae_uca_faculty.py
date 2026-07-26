@@ -963,15 +963,17 @@ def scrape_encg_faculty(url: str, session: requests.Session) -> list:
 # CRAWLER BFS (ajouté depuis le deuxième code)
 # ==============================================================
 
-def crawl_faculty_bfs(faculty_name: str, base_url: str, max_pages: int = 500) -> None:
+def crawl_faculty_bfs(faculty_name: str, base_url: str, max_pages: int = 500, max_duration: int = 120) -> None:
     """
     Explore en largeur (BFS) un site, sauvegarde HTML, images, documents, JSON‑LD.
     Utilise les mêmes fonctions de sauvegarde que le scraper.
+    s'arrête après max_duration secondes même si max_pages n'est pas atteint.
     """
-    logger.info(f"🚀 Démarrage du crawl BFS pour: {faculty_name} (Max {max_pages} pages)")
+    logger.info(f"🚀 Démarrage du crawl BFS pour: {faculty_name} (Max {max_pages} pages, timeout {max_duration}s)")
 
     client = MinIOClient()
     now = datetime.now()
+    deadline = time.time() + max_duration
 
     visited_pages = set()
     downloaded_assets = set()
@@ -988,6 +990,9 @@ def crawl_faculty_bfs(faculty_name: str, base_url: str, max_pages: int = 500) ->
         })
 
         while queue and len(visited_pages) < max_pages:
+            if time.time() > deadline:
+                logger.info(f"⏰ Crawl BFS {faculty_name} arrêté après {max_duration}s (timeout)")
+                break
             url = _normalize_url_crawl(queue.popleft())
             if url in visited_pages:
                 continue

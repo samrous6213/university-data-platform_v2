@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from pyspark.sql import DataFrame, SparkSession
+import pyspark.sql.functions as F
 
 from src.transformations.config.hudi_config import FACULTY_PROFILES_HUDI
 from src.transformations.readers.minio_reader import (
@@ -14,6 +15,7 @@ from src.transformations.transformers.faculty_transformer import (
     transform_faculty_profiles,
 )
 from src.transformations.utils.logger import get_logger
+from src.transformations.writers.es_writer import write_to_elasticsearch
 from src.transformations.writers.hudi_writer import write_hudi_table
 
 logger = get_logger(__name__)
@@ -42,12 +44,16 @@ def run_faculty_profiles_etl(
 
     for prefix in all_prefixes:
         raw = read_json(spark, bucket, prefix=prefix)
+        if len(raw.columns) == 1 and "_corrupt_record" in raw.columns:
+            raw = read_json(spark, bucket, prefix=prefix, multi_line=True)
         matched = [f for f in FACULTY_ARRAY_FIELDS if f in raw.columns]
-        if not matched:
-            continue
-        exploded = raw.selectExpr(f"inline_outer({matched[0]})", "input_file_name() as _source_file")
         source_name = extract_source_name(prefix)
-        tf = transform_faculty_profiles(exploded)
+        if matched:
+            exploded = raw.selectExpr(f"inline_outer({matched[0]})", "input_file_name() as _source_file")
+        else:
+            logger.info(f"No array field matched for source='{source_name}', treating as flat record")
+            exploded = raw.withColumn("_source_file", F.input_file_name())
+        tf = transform_faculty_profiles(exploded, source_name)
         count = tf.count()
         if count > 0:
             transformed_sources.append(tf)
@@ -66,7 +72,10 @@ def run_faculty_profiles_etl(
 
     write_hudi_table(combined, FACULTY_PROFILES_HUDI)
 
-    final_count = combined.count()
+    deduped = combined.dropDuplicates(["record_id"])
+    write_to_elasticsearch(deduped, "faculty_profiles")
+
+    final_count = deduped.count()
     breakdown = ", ".join(
         f"{src}={cnt}" for src, cnt in source_record_counts.items()
     )

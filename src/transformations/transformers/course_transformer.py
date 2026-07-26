@@ -78,23 +78,12 @@ FIELD_MAPPINGS: Dict[str, Dict[str, str]] = {
         "source_url": "source_url",
     },
 }
-
 DEFAULT_FACULTY = "Général"
 
-
-def _detect_source_type(df: DataFrame) -> str:
-    if "source_system" in df.columns:
-        first_row = df.select("source_system").limit(1).collect()
-        if first_row:
-            src = str(first_row[0][0])
-            if "course" in src.lower():
-                return "course_scraper"
-            if "news" in src.lower():
-                return "news_scraper"
-            return src
-    if "course_code" in df.columns or "course_id" in df.columns:
-        return "course_scraper"
-    return "unknown"
+SOURCE_MAPPING = {
+    "all_institutions_marrakech": "news_scraper",
+    "ensa": "news_scraper",
+}
 
 
 def _map_to_course_schema(df: DataFrame, source_type: str) -> DataFrame:
@@ -125,15 +114,16 @@ def _map_to_course_schema(df: DataFrame, source_type: str) -> DataFrame:
     return df.select(all_exprs)
 
 
-def transform_course_catalog(df: DataFrame) -> DataFrame:
+def transform_course_catalog(df: DataFrame, source_name: str) -> DataFrame:
     if df.isEmpty():
         logger.warning("Empty input DataFrame, returning empty result")
         return df
 
-    source_type = _detect_source_type(df)
-    logger.info(f"Transforming course data from source_type={source_type}")
+    source_type = source_name
+    mapping_key = SOURCE_MAPPING.get(source_name, source_name)
+    logger.info(f"Transforming course data from source_type={source_type} (mapping_key={mapping_key})")
 
-    df = _map_to_course_schema(df, source_type)
+    df = _map_to_course_schema(df, mapping_key)
 
     if "course_name" not in df.columns and "title" in df.columns:
         df = df.withColumnRenamed("title", "course_name")
@@ -159,8 +149,7 @@ def transform_course_catalog(df: DataFrame) -> DataFrame:
     else:
         df = df.withColumn("credits", F.lit(0).cast(IntegerType()))
 
-    if "source_system" not in df.columns:
-        df = df.withColumn("source_system", F.lit(source_type))
+    df = df.withColumn("source_system", F.lit(source_type))
 
     if "content_hash" not in df.columns or "record_id" not in df.columns:
         if "content_hash" not in df.columns:
