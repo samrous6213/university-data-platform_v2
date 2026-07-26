@@ -39,22 +39,41 @@ def health():
     return {"api": "ok", "elasticsearch": "ok" if es_ok else "unreachable"}
 
 
+from typing import Optional
+
 @app.get("/search")
 def search(
     q: str = Query(..., min_length=1, description="Mot(s)-cle a rechercher"),
     size: int = Query(10, ge=1, le=50, description="Nombre de resultats max"),
+    entity_type: Optional[str] = Query(
+        None, description="Filtrer par type : faculty_profiles ou course_catalog"
+    ),
+    school_id: Optional[str] = Query(
+        None, description="Filtrer par etablissement (ex: faculty_ensam)"
+    ),
 ):
     """
     Recherche texte libre sur les profils faculte et le catalogue de
-    formations (titre, texte normalise, ecole). Retourne les meilleurs
-    resultats avec un extrait surligne (highlight) du texte matche.
+    formations (titre, texte normalise, ecole), avec filtres optionnels
+    par type d'entite et par etablissement.
     """
+    filters = []
+    if entity_type:
+        filters.append({"term": {"entity_type": entity_type}})
+    if school_id:
+        filters.append({"term": {"school_id": school_id}})
+
     query = {
         "query": {
-            "multi_match": {
-                "query": q,
-                "fields": ["title_or_name^3", "school_name^2", "searchable_text"],
-                "fuzziness": "AUTO",
+            "bool": {
+                "must": {
+                    "multi_match": {
+                        "query": q,
+                        "fields": ["title_or_name^3", "school_name^2", "searchable_text"],
+                        "fuzziness": "AUTO",
+                    }
+                },
+                "filter": filters,
             }
         },
         "highlight": {
@@ -80,6 +99,7 @@ def search(
 
     return {
         "query": q,
+        "filters_applied": {"entity_type": entity_type, "school_id": school_id},
         "total_results": result["hits"]["total"]["value"],
         "results": hits,
     }

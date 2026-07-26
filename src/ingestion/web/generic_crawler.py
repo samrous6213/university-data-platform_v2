@@ -317,8 +317,18 @@ def run(config_path: str | Path | None = None, max_depth: int = 2) -> dict:
     result = {"summaries": summaries, "schools_with_errors": sum(1 for s in summaries if s["errors"] > 0)}
     logger.info("Resume du run web : %s", result)
 
+    # Echec critique : une ecole n'a RIEN recupere du tout (site injoignable,
+    # MinIO down, robots.txt bloque tout...). C'est un vrai signal a remonter.
+    critical_failures = [s["school_id"] for s in summaries if s["pages_ingested"] == 0]
+    if critical_failures:
+        raise RuntimeError(f"Ingestion web : echec total pour {critical_failures} -- {result}")
+
+    # Erreurs mineures ponctuelles (PDF casse, page 404 isolee...) : tracees
+    # dans les logs et dans raw-logs (write_run_log), mais ne bloquent pas
+    # le pipeline puisque l'essentiel des donnees a ete recupere.
     if result["schools_with_errors"]:
-        raise RuntimeError(f"Ingestion web terminee avec erreurs : {result}")
+        logger.warning("Crawl termine avec des erreurs mineures ponctuelles : %s", result)
+
     return result
 
 

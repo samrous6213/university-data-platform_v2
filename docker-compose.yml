@@ -147,6 +147,10 @@ services:
       - airflow-postgres
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      PYTHONPATH: /opt/airflow
+      _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-ssh
+      AIRFLOW__WEBSERVER__SECRET_KEY: "un_secret_partage_pour_le_mvp_12345"
     command: >
       bash -c "
       airflow db migrate &&
@@ -169,9 +173,12 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       PYTHONPATH: /opt/airflow
+      _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-ssh
+      AIRFLOW__WEBSERVER__SECRET_KEY: "un_secret_partage_pour_le_mvp_12345"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
+      - ./airflow_home/ssh_keys:/opt/airflow/ssh_keys
     command: webserver
     ports:
       - "8081:8080"
@@ -186,9 +193,12 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       PYTHONPATH: /opt/airflow
+      _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-ssh
+      AIRFLOW__WEBSERVER__SECRET_KEY: "un_secret_partage_pour_le_mvp_12345"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
+      - ./airflow_home/ssh_keys:/opt/airflow/ssh_keys
     command: scheduler
 
 volumes:

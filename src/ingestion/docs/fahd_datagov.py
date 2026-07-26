@@ -201,18 +201,33 @@ def ingest_dataset(client: MinIOClient, session: requests.Session, package_id: s
 
 
 def run(dataset_ids: list[str]) -> dict:
-    """Point d'entrée principal. Lève RuntimeError si un dataset a échoué."""
+    """Point d'entrée principal. Lève RuntimeError uniquement en cas d'échec critique."""
     session = build_session()
     client = MinIOClient()
 
     summaries = [ingest_dataset(client, session, pkg_id) for pkg_id in dataset_ids]
-    total_failed = sum(1 for s in summaries if s["error"] or s["resources_failed"] > 0)
 
-    result = {"summaries": summaries, "datasets_with_errors": total_failed}
+    # Échec critique : le dataset entier a échoué (erreur CKAN, package
+    # introuvable) -> aucune ressource récupérée pour ce dataset.
+    critical_failures = [s["dataset_id"] for s in summaries if s["error"] or s["resources_ingested"] == 0]
+
+    # Erreurs partielles : quelques ressources individuelles ont échoué
+    # (lien mort, fichier temporairement indisponible) mais le dataset a
+    # globalement été traité.
+    datasets_with_partial_errors = sum(1 for s in summaries if s["resources_failed"] > 0)
+
+    result = {
+        "summaries": summaries,
+        "datasets_with_partial_errors": datasets_with_partial_errors,
+    }
     logger.info("Résumé du run : %s", result)
 
-    if total_failed:
-        raise RuntimeError(f"Ingestion data.gov.ma terminée avec erreurs : {result}")
+    if critical_failures:
+        raise RuntimeError(f"Ingestion data.gov.ma : echec total pour {critical_failures} -- {result}")
+
+    if datasets_with_partial_errors:
+        logger.warning("Ingestion terminee avec des erreurs mineures sur certaines ressources : %s", result)
+
     return result
 
 

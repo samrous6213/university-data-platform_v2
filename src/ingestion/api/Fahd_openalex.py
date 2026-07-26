@@ -184,18 +184,31 @@ def run(institution_key: str, institution_id: str, limit: int = 200) -> None:
 
 
 def main() -> None:
+    total_institutions = 0
     failures = 0
     for institution_key, institution_id in INSTITUTIONS.items():
         if institution_id.startswith("I_REPLACE_ME"):
             logger.warning("Institution '%s' ignoree : ID OpenAlex non configure.", institution_key)
             continue
+        total_institutions += 1
         try:
             run(institution_key, institution_id, limit=200)
         except RuntimeError:
             failures += 1
 
+    # Echec critique uniquement si TOUTES les institutions ont echoue
+    # (ex: API OpenAlex totalement injoignable, panne reseau generale).
+    if total_institutions and failures == total_institutions:
+        logger.error("Echec total : les %s institutions ont echoue.", total_institutions)
+        sys.exit(1)
+
+    # Echec partiel (ex: timeout ponctuel sur 1 institution sur 4) :
+    # trace mais ne bloque pas le pipeline en aval.
     if failures:
-        sys.exit(1)  # code de sortie non-nul : utile pour l'alerting cron / Airflow
+        logger.warning(
+            "Ingestion OpenAlex terminee avec %s/%s institution(s) en echec (voir logs ci-dessus).",
+            failures, total_institutions,
+        )
 
 
 if __name__ == "__main__":

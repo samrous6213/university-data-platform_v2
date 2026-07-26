@@ -15,6 +15,16 @@ from configs.spark_config import (
     MINIO_SECRET_KEY,
     S3A_ENDPOINT,
 )
+import os
+import sys
+
+os.environ["PYSPARK_PYTHON"] = sys.executable
+os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+
+print("Driver :", sys.executable)
+print("PYSPARK_PYTHON :", os.environ.get("PYSPARK_PYTHON"))
+print("PYSPARK_DRIVER_PYTHON :", os.environ.get("PYSPARK_DRIVER_PYTHON"))
+
 
 HUDI_PACKAGE = "org.apache.hudi:hudi-spark3.4-bundle_2.12:0.14.1"
 AWS_BUNDLE_PACKAGE = "org.apache.hadoop:hadoop-aws:3.3.4"

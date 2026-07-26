@@ -26,3 +26,5 @@ logs/
 #local configuration 
 .env
 docker-compose.override.yml
+# Airflow
+airflow_home/
