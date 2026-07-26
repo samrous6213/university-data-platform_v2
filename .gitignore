@@ -4,6 +4,7 @@ pycache/
 *$py.class
 *.so
 .Python
+*.pyc
 env/
 venv/
 ENV/
@@ -28,3 +29,13 @@ logs/
 docker-compose.override.yml
 # Airflow
 airflow_home/
+# Virtual environment
+.venv/
+# Logs
+logs/
+airflow_home/logs/
+# Spark
+spark-warehouse/
+# IDE
+.vscode/
+.idea/
