@@ -129,3 +129,9 @@ config_local.pyairflow_env/
 src/ingestion/web/faculty_scraper.py
 src/ingestion/web/news_scraper.py
 toubkal_imist_checkpoint.txt
+
+notes.txt
+docker-versionlifihaproblems.yml
+
+es_indexer_script.py
+test_dag.py

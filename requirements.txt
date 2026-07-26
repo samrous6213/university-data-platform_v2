@@ -1,4 +1,4 @@
-# Dépendances Python (Semaine 1)
+# Dépendances Python 
 # Note: les versions sont pinées pour réduire les écarts d’environnement.
 
 requests==2.32.3
@@ -21,4 +21,3 @@ psycopg2-binary==2.9.9
 # Helpers / robustesse
 python-dateutil==2.9.0.post0
 pytz==2025.1
-

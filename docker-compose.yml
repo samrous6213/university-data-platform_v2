@@ -1,11 +1,23 @@
 x-airflow-common: &airflow-common
   image: apache/airflow:2.10.0-python3.11
-  user: "50000:50000" # Fix permission issues
+  user: "50000:0" # Fix permission issues
   restart: unless-stopped
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__CORE__FERNET_KEY: vYfG7ghjptCRD1O9Becs48DIlg9pPQa_eM0Iqjx_amE=
     AIRFLOW__WEBSERVER__SECRET_KEY: 5c4132f67a66d77573e0ecec82a97d75dade94d43936863320192e63f12942b0
+    AIRFLOW__API__SECRET_KEY: 5c4132f67a66d77573e0ecec82a97d75dade94d43936863320192e63f12942b0
+    AIRFLOW__API_AUTH__JWT_SECRET: 5c4132f67a66d77573e0ecec82a97d75dade94d43936863320192e63f12942b0
+    AIRFLOW__CORE__DEFAULT_TASK_EXECUTION_TIMEOUT: 3600 # 🔥 60 minutes
+    AIRFLOW__WEBSERVER__WORKER_TIMEOUT: 3600 # 🔥 60 minutes
+    AIRFLOW__HOSTNAME_COMMAND: "echo localhost"
+    AIRFLOW__WEBSERVER__BASE_URL: "http://localhost:8080"
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: "UTC"  # ⚠️ AJOUTE CETTE LIGNE
+    TZ: "UTC"
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./src:/opt/airflow/src
+    - ./requirements.txt:/requirements.txt
 
 services:
   minio:
@@ -45,21 +57,16 @@ services:
     container_name: hive-metastore
     restart: unless-stopped
     environment:
-      # Database configuration
       DB_DRIVER: postgres
       DATABASE_HOST: postgres
       DATABASE_PORT: 5432
       DATABASE_NAME: metastore
       DATABASE_USER: hive
       DATABASE_PASSWORD: hive
-      # Hive configuration
       HIVE_METASTORE_JDBC_DRIVER: org.postgresql.Driver
       HIVE_METASTORE_JDBC_URL: jdbc:postgresql://postgres:5432/metastore
       HIVE_METASTORE_USER: hive
       HIVE_METASTORE_PASSWORD: hive
-      # Additional settings
-      SERVICE_NAME: hive-metastore
-      SERVICE_OPTS: "-Xmx1G"
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,7 +106,7 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g # Augmenté
     ports:
       - "9200:9200"
     volumes:
@@ -112,12 +119,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metastore
+      MB_DB_PORT: 5432
+      MB_DB_USER: hive
+      MB_DB_PASS: hive
+      MB_DB_HOST: postgres
     ports:
       - "3000:3000"
 
   airflow-postgres:
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -U airflow"]
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -150,12 +164,26 @@ services:
     image: apache/airflow:2.10.0-python3.11
     container_name: airflow-webserver
     restart: unless-stopped
+    hostname: airflow-webserver
     depends_on:
-      - airflow-postgres
+      airflow-postgres:
+        condition: service_healthy
     environment:
+      AIRFLOW__WEBSERVER__SECRET_KEY: "5c4132f67a66d77573e0ecec82a97d75dade94d43936863320192e63f12942b0"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-    command: webserver
+      AIRFLOW__WEBSERVER__WORKER_TIMEOUT: 1800
+      AIRFLOW__WEBSERVER__WEB_SERVER_WORKER_TIMEOUT: 1800
+      AIRFLOW__WEBSERVER__WORKERS: 1
+      AIRFLOW__HOSTNAME_COMMAND: "echo airflow-webserver"
+      AIRFLOW__WEBSERVER__BASE_URL: "http://localhost:8081"
+      AIRFLOW__LOGGING__REMOTE_LOGGING: "false"
+      AIRFLOW__LOGGING__SERVE_LOGS: "true"
+      AIRFLOW__WEBSERVER__RELOAD: "false"  # Désactive le rechargement automatique
+      AIRFLOW__WEBSERVER__LOG_SERVER_HOST: "airflow-scheduler"
+      AIRFLOW__WEBSERVER__LOG_FETCH_TIMEOUT_SEC: "30"
+    command: webserver --workers 1 --debug  # ⚠️ MODE DEBUG (pas de Gunicorn)
     ports:
       - "8081:8080"
     user: root
@@ -165,12 +193,21 @@ services:
     image: apache/airflow:2.10.0-python3.11
     container_name: airflow-scheduler
     restart: unless-stopped
+    hostname: airflow-scheduler
     depends_on:
-      - airflow-postgres
+      airflow-postgres:
+        condition: service_healthy
     environment:
+      AIRFLOW__WEBSERVER__SECRET_KEY: "5c4132f67a66d77573e0ecec82a97d75dade94d43936863320192e63f12942b0"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__HOSTNAME_COMMAND: "echo airflow-scheduler"
+      AIRFLOW__LOGGING__REMOTE_LOGGING: "false"
+      AIRFLOW__LOGGING__SERVE_LOGS: "true"
+      AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     command: scheduler
+    
 
 networks:
   default:

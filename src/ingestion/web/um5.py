@@ -247,7 +247,7 @@ def validate_email(email: str) -> bool:
 def save_raw_html(source_name: str, url: str, html_content: str, page_type: str) -> None:
     """Sauvegarde le HTML brut dans MinIO avec métadonnées et JSON-LD."""
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient(endpoint="university-minio:9000")
         partition = get_date_partition()
         timestamp = partition["timestamp"]
         
@@ -320,7 +320,7 @@ def save_image(image_url: str, source_name: str, image_name: str = None) -> bool
         return False
     
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient(endpoint="university-minio:9000")
         partition = get_date_partition()
         
         session = create_session()
@@ -417,7 +417,7 @@ def save_document(document_url: str, source_name: str, document_name: str = None
         return False
     
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient(endpoint="university-minio:9000")
         partition = get_date_partition()
         timestamp = partition["timestamp"]
         
@@ -506,7 +506,7 @@ def save_structured_data(source_name: str, data_type: str, data_list: list) -> i
         return 0
     
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient(endpoint="university-minio:9000")
         partition = get_date_partition()
         timestamp = partition["timestamp"]
         
@@ -577,7 +577,7 @@ def save_structured_data(source_name: str, data_type: str, data_list: list) -> i
 def save_consolidated_data(all_news: list, all_faculty: list) -> None:
     """Sauvegarde les données consolidées."""
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient(endpoint="university-minio:9000")
         partition = get_date_partition()
         timestamp = partition["timestamp"]
         
@@ -642,7 +642,7 @@ def save_consolidated_data(all_news: list, all_faculty: list) -> None:
 def save_stats(source_name: str, stats: dict) -> None:
     """Sauvegarde les statistiques du scraping."""
     try:
-        client = MinIOClient(endpoint="localhost:9000")
+        client = MinIOClient(endpoint="university-minio:9000")
         partition = get_date_partition()
         timestamp = partition["timestamp"]
         

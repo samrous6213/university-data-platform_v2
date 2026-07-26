@@ -19,16 +19,15 @@ class MinIOClient:
         secret_key: Optional[str] = None,
         secure: Optional[bool] = None,
     ):
-        # Auto-detect if running inside Docker or on Mac
-        if endpoint is None:
-            # Check if we're inside a Docker container
-            if os.path.exists('/.dockerenv'):
-                endpoint = "minio:9001"
-            else:
-                # Running on Mac - use localhost with mapped port
-                endpoint = "localhost:9000"
+        # ⚠️ FORCER LE BON ENDPOINT POUR DOCKER
+        if os.path.exists('/.dockerenv'):
+            endpoint = "university-minio:9000"
+        else:
+            endpoint = "localhost:9000"
         
-        endpoint = endpoint or os.getenv("MINIO_ENDPOINT", "localhost:9000")
+        # Ou mieux : utiliser directement
+        # endpoint = "university-minio:9000"
+        
         access_key = access_key or os.getenv("MINIO_ACCESS_KEY", "minioadmin")
         secret_key = secret_key or os.getenv("MINIO_SECRET_KEY", "minioadmin")
 
