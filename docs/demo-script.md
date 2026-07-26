@@ -79,9 +79,10 @@
 ### 6. Metabase - Dashboard (3 min)
 1. Ouvrir http://localhost:3000
 2. Se connecter avec les identifiants configurés
-3. Montrer le dashboard avec les **7 KPIs** :
+3. Montrer le dashboard avec les **8 KPIs** :
    - Total Professors
    - Total News
+   - Total Departments
    - Professors by Institution
    - News by Institution
    - Top 10 Departments

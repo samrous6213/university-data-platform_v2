@@ -293,7 +293,7 @@ Toutes les captures d'écran sont disponibles dans `docs/screenshots/`. Elles mo
 - ✅ Logs des tâches
 - ✅ Données dans MinIO
 - ✅ Documents indexés dans Elasticsearch (606)
-- ✅ Dashboard Metabase (7 KPIs)
+- ✅ Dashboard Metabase (8 KPIs)
 
 ---
 

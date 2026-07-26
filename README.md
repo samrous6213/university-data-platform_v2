@@ -26,7 +26,7 @@
 - **L’indexation pour la recherche** :
   - via **Elasticsearch**
 - **La restitution BI** :
-  - via **Metabase** (dashboard de **7 KPIs**)
+  - via **Metabase** (dashboard de **8 KPIs**)
 - **L’orchestration** :
   - via **Apache Airflow** (pipeline planifié)
 
@@ -50,7 +50,7 @@
    - Spark (ou jobs associés) prépare un format ES.
    - Indexation dans Elasticsearch dans l’index `university_data`.
 4. **BI & Recherche** 
-   - Metabase lit les tables structurées et affiche les **7 KPIs**.
+   - Metabase lit les tables structurées et affiche les **8 KPIs**.
    - Elasticsearch permet recherche / exploration via documents indexés.
 
 ---
@@ -260,30 +260,7 @@ Ces KPIs permettent de visualiser en temps réel l'état des données ingérées
 
 ---
 
-## 10) Pistes d'amélioration / Roadmap 
-
-- [ ] **Finaliser l’intégration Hudi**
-  - activer une stratégie de mise à jour/incrémentale plus robuste
-  - valider le partitionnement par institution/date
-- [ ] **Enrichissement Crossref**
-  - normaliser davantage les champs (auteurs, DOI, type, année)
-  - relier les publications aux institutions si mapping possible
-- [ ] **Thèses (Toubkal/IMIST) : completude**
-  - améliorer la détection des métadonnées
-  - pipeline complet d’indexation & visualisation (si souhaité)
-- [ ] **Recherche Elasticsearch : mappings & analyzers**
-  - définir mappings plus stricts (type/suggest/autocomplete)
-  - ajouter scoring et filtres (institution, category, type)
-- [ ] **Observabilité**
-  - logs ingestion → `raw-logs`
-  - métriques Airflow/Spark pour suivi qualité
-- [ ] **Production-ready**
-  - gestion des secrets (au lieu des valeurs en dur)
-  - exécutions idempotentes et stratégie de ré-essais renforcée
-
----
-
-## 11) Preuves de test 
+## 10) Preuves de test 
 
 Toutes les captures d'écran des tests sont disponibles dans le dossier `docs/screenshots/`.
 
