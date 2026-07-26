@@ -38,7 +38,10 @@ def get_spark_session(app_name: str | None = None) -> SparkSession:
       - se synchroniser avec Hive Metastore (SQL access, brief section 3)
     """
     builder = (
-        SparkSession.builder.appName(app_name or APP_NAME)
+        SparkSession.builder
+        .appName(app_name or APP_NAME)
+        .master("local[4]")
+        .config("spark.driver.memory", "2g")
         .config("spark.jars.packages", f"{HUDI_PACKAGE},{AWS_BUNDLE_PACKAGE}")
         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
         .config("spark.sql.extensions", "org.apache.spark.sql.hudi.HoodieSparkSessionExtension")
