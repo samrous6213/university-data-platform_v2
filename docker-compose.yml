@@ -8,11 +8,11 @@ x-airflow-common: &airflow-common
     AIRFLOW__WEBSERVER__SECRET_KEY: 5c4132f67a66d77573e0ecec82a97d75dade94d43936863320192e63f12942b0
     AIRFLOW__API__SECRET_KEY: 5c4132f67a66d77573e0ecec82a97d75dade94d43936863320192e63f12942b0
     AIRFLOW__API_AUTH__JWT_SECRET: 5c4132f67a66d77573e0ecec82a97d75dade94d43936863320192e63f12942b0
-    AIRFLOW__CORE__DEFAULT_TASK_EXECUTION_TIMEOUT: 3600 # 🔥 60 minutes
-    AIRFLOW__WEBSERVER__WORKER_TIMEOUT: 3600 # 🔥 60 minutes
+    AIRFLOW__CORE__DEFAULT_TASK_EXECUTION_TIMEOUT: 3600 
+    AIRFLOW__WEBSERVER__WORKER_TIMEOUT: 3600 
     AIRFLOW__HOSTNAME_COMMAND: "echo localhost"
     AIRFLOW__WEBSERVER__BASE_URL: "http://localhost:8080"
-    AIRFLOW__CORE__DEFAULT_TIMEZONE: "UTC"  # ⚠️ AJOUTE CETTE LIGNE
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: "UTC"  
     TZ: "UTC"
   volumes:
     - ./dags:/opt/airflow/dags
@@ -183,7 +183,7 @@ services:
       AIRFLOW__WEBSERVER__RELOAD: "false"  # Désactive le rechargement automatique
       AIRFLOW__WEBSERVER__LOG_SERVER_HOST: "airflow-scheduler"
       AIRFLOW__WEBSERVER__LOG_FETCH_TIMEOUT_SEC: "30"
-    command: webserver --workers 1 --debug  # ⚠️ MODE DEBUG (pas de Gunicorn)
+    command: webserver --workers 1 --debug  # MODE DEBUG (pas de Gunicorn)
     ports:
       - "8081:8080"
     user: root

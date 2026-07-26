@@ -76,6 +76,7 @@ docker-compose.override.yml
 *.parquet
 *.hudi
 *.pdf
+!docs/archi.pdf
 *.html
 data/
 raw/
