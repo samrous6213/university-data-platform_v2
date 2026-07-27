@@ -16,15 +16,15 @@ Plateforme d'ingestion et d'analyse de données académiques pour les universit�
 
 ## 👥 Répartition du travail par membre
 
-| Membre | Branche | Sources Web | Sources API | Sources Docs |
-|--------|---------|-------------|-------------|--------------|
-| Sara Amrous | `sara` | UM5 | Crossref | Toubkal | 
-| Chaimae hassari | `chaimae` | UCA | OpenAlex | IMIST | 
-| Ayoub | `ayoub` | USMBA | ORCID | Data.gov.ma | 
-| Hiba | `hiba` | UH2C | OpenAlex | HCP | 
-| Nezha | `nezha` | USMS | Crossref | MIT OCW | 
-| Safaa | `safaa` | UIZ | ORCID | Khan Academy |
-| Fahd | `fahd` | ONOUSC | OpenAlex | Wikipedia Mathematics |
+| Membre           | Branche   | Sources Web | Sources API | Sources Docs          |
+|------------------|-----------|-------------|-------------|-----------------------|
+| Sara Amrous      | `sara`    | UM5         | Crossref    | Toubkal               | 
+| Chaimae hassari  | `chaimae` | UCA         | OpenAlex    | IMIST                 | 
+| Ayoub            | `ayoub`   | USMBA       | ORCID       | Data.gov.ma           | 
+| Hiba             | `hiba`    | UH2C        | OpenAlex    | HCP                   | 
+| Nezha Ait EL had | `nezha`   | USMS        | Crossref    | MIT OCW               | 
+| Safaa            | `safaa`   | UIZ         | ORCID       | Khan Academy          |
+| Fahd             | `fahd`    | ONOUSC      | OpenAlex    | Wikipedia Mathematics |
 
 ---
 
