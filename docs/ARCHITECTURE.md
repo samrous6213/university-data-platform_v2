@@ -1,7 +1,7 @@
 # Architecture — University Data Platform
 
 ## 1. Diagramme complet
-==> Voir [`university_data_platform_architecture_v2.svg`](https://github.com/samrous6213/university-data-platform_v2/blob/nezha/docs/ARCHITECTURE.md) pour le diagramme détaillé et le rôle de chaque composant. 
+==> Voir [`university_data_platform_architecture_v2.svg`](https://github.com/samrous6213/university-data-platform_v2/blob/nezha/docs/university_data_platform_architecture_v2.svg) pour l'architecture détaillé. 
 
 ## 2. Rôle de chaque composant
 
