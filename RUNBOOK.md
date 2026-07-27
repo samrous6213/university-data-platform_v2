@@ -996,4 +996,4 @@ docker logs <container_name> --tail=50
 
 ---
 
-> **Note** : Ce runbook couvre l'architecture sans Airflow ni Qdrant. Les services ETL sont exécutés manuellement via `docker exec` + `spark-submit`. Pour une orchestration automatique, voir la documentation Airflow séparée.
+
