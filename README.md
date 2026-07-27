@@ -31,7 +31,7 @@ Metabase (dashboard, 8 KPIs)          Elasticsearch (recherche full-text + API H
 Orchestration de bout en bout : Apache Airflow (DAG `nezha_pipeline`)
 ```
 
-Voir [`ARCHITECTURE.md`](./ARCHITECTURE.md) pour le diagramme détaillé et le rôle de chaque composant.
+Voir [`ARCHITECTURE.m`](https://github.com/samrous6213/university-data-platform_v2/blob/nezha/docs/ARCHITECTURE.md) pour le diagramme détaillé et le rôle de chaque composant.
 
 ## 2. Sources de données (3 types requis)
 
