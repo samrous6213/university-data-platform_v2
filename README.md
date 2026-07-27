@@ -18,7 +18,7 @@ Plateforme d'ingestion et d'analyse de données académiques pour les universit�
 
 | Membre | Branche | Sources Web | Sources API | Sources Docs | Fichiers principaux |
 |--------|---------|-------------|-------------|--------------|---------------------|
-| Sara | `sara` | UM5 | Crossref | Toubkal | `src/ingestion/web/um5.py`, `src/ingestion/api/crossref.py`, `src/ingestion/docs/toubkal.py` |
+| Sara Amrous | `sara` | UM5 | Crossref | Toubkal | `src/ingestion/web/um5.py`, `src/ingestion/api/crossref.py`, `src/ingestion/docs/toubkal.py` |
 | Chaimae | `chaimae` | UCA | OpenAlex | IMIST | `src/ingestion/web/uca.py`, `src/ingestion/api/openalex.py`, `src/ingestion/docs/imist.py` |
 | Ayoub | `ayoub` | USMBA | ORCID | Data.gov.ma | `src/ingestion/web/usmba.py`, `src/ingestion/api/orcid.py`, `src/ingestion/docs/datagovma.py` |
 | Hiba | `hiba` | UH2C | OpenAlex | HCP | `src/ingestion/web/uh2c.py`, `src/ingestion/api/openalex.py`, `src/ingestion/docs/hcp.py` |
@@ -32,7 +32,7 @@ Plateforme d'ingestion et d'analyse de données académiques pour les universit�
 
 | Membre | Branche | Lien |
 |--------|---------|------|
-| Sara | `sara` | [Voir la branche sara](https://github.com/samrous6213/university-data-platform_v2/tree/sara) |
+| Sara Amrous| `sara` | [Voir la branche sara](https://github.com/samrous6213/university-data-platform_v2/tree/sara) |
 | Chaimae | `chaimae` | [Voir la branche chaimae](https://github.com/samrous6213/university-data-platform_v2/tree/chaimae) |
 | Ayoub | `ayoub` | [Voir la branche ayoub](https://github.com/samrous6213/university-data-platform_v2/tree/ayoub) |
 | Hiba | `hiba` | [Voir la branche hiba](https://github.com/samrous6213/university-data-platform_v2/tree/hiba) |
@@ -46,9 +46,9 @@ Plateforme d'ingestion et d'analyse de données académiques pour les universit�
 
 | Source | Membre | Branche | Statut |
 |--------|--------|---------|--------|
-| UM5 Web | Sara | `sara` | ✅ Fonctionnel |
-| Toubkal | Sara | `sara` | ✅ Fonctionnel |
-| Crossref API | Sara | `sara` | ✅ Fonctionnel |
+| UM5 Web | Sara Amrous| `sara` | ✅ Fonctionnel |
+| Toubkal | Sara Amrous| `sara` | ✅ Fonctionnel |
+| Crossref API | Sara Amrous| `sara` | ✅ Fonctionnel |
 | UCA Web | Chaimae | `chaimae` | ✅ Fonctionnel |
 | OpenAlex API | Chaimae, Hiba, Fahd | `chaimae`, `hiba`, `fahd` | ✅ Fonctionnel |
 | IMIST | Chaimae | `chaimae` | ✅ Fonctionnel |
@@ -95,7 +95,7 @@ Chaque membre a sa propre documentation dans sa branche :
 
 | Membre | README | RUNBOOK | Demo Script |
 |--------|--------|---------|-------------|
-| Sara | [README](https://github.com/samrous6213/university-data-platform_v2/blob/sara/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/sara/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/sara/docs/demo-script.md) |
+| Sara Amrous| [README](https://github.com/samrous6213/university-data-platform_v2/blob/sara/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/sara/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/sara/docs/demo-script.md) |
 | Chaimae | [README](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/docs/demo-script.md) |
 | Ayoub | [README](https://github.com/samrous6213/university-data-platform_v2/blob/ayoub/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/ayoub/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/ayoub/docs/demo-script.md) |
 | Hiba | [README](https://github.com/samrous6213/university-data-platform_v2/blob/hiba/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/hiba/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/hiba/docs/demo-script.md) |
@@ -111,7 +111,7 @@ Projet réalisé dans le cadre du challenge **University Data Platform** par :
 
 | Membre | Sources |
 |--------|---------|
-| **Sara (P1)** | UM5 Web, Toubkal, Crossref API |
+| **Sara Amrous(P1)** | UM5 Web, Toubkal, Crossref API |
 | **Chaimae (P2)** | UCA Web, IMIST, OpenAlex API |
 | **Ayoub (P3)** | USMBA Web, Data.gov.ma, ORCID API |
 | **Hiba (P4)** | UH2C Web, HCP, OpenAlex API |
