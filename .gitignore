@@ -8,6 +8,9 @@ env/
 venv/
 ENV/
 .venv/
+.venv-wsl/
+spark-ivy-cache/
+fin wslt.txt
 #Ide 
 .vscode/
 .idea/
@@ -27,3 +30,4 @@ logs/
 #local configuration 
 .env
 docker-compose.override.yml
+

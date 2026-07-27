@@ -1,0 +1,22 @@
+# Image Spark personnalisée avec les dépendances Python nécessaires
+# pour export_to_postgres.py, index.py (Elasticsearch), et les scripts
+# d'ingestion (usms.py, crossref.py, mit_ocw_pdf_scraper.py),
+# pré-installées de façon permanente (ne disparaissent plus après un
+# redémarrage du conteneur).
+FROM apache/spark:3.5.1
+
+USER root
+
+RUN pip install --no-cache-dir \
+    pandas \
+    psycopg2-binary \
+    "elasticsearch>=8.11,<9.0"\
+    requests \
+    beautifulsoup4 \
+    minio \
+    python-dotenv \
+    urllib3\
+    flask
+
+
+USER spark
