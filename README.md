@@ -19,7 +19,7 @@ Plateforme d'ingestion et d'analyse de données académiques pour les universit�
 | Membre | Branche | Sources Web | Sources API | Sources Docs |
 |--------|---------|-------------|-------------|--------------|
 | Sara Amrous | `sara` | UM5 | Crossref | Toubkal | 
-| Chaimae | `chaimae` | UCA | OpenAlex | IMIST | 
+| Chaimae hassari | `chaimae` | UCA | OpenAlex | IMIST | 
 | Ayoub | `ayoub` | USMBA | ORCID | Data.gov.ma | 
 | Hiba | `hiba` | UH2C | OpenAlex | HCP | 
 | Nezha | `nezha` | USMS | Crossref | MIT OCW | 
@@ -33,7 +33,7 @@ Plateforme d'ingestion et d'analyse de données académiques pour les universit�
 | Membre | Branche | Lien |
 |--------|---------|------|
 | Sara Amrous| `sara` | [Voir la branche sara](https://github.com/samrous6213/university-data-platform_v2/tree/sara) |
-| Chaimae | `chaimae` | [Voir la branche chaimae](https://github.com/samrous6213/university-data-platform_v2/tree/chaimae) |
+| Chaimae hassari| `chaimae` | [Voir la branche chaimae](https://github.com/samrous6213/university-data-platform_v2/tree/chaimae) |
 | Ayoub | `ayoub` | [Voir la branche ayoub](https://github.com/samrous6213/university-data-platform_v2/tree/ayoub) |
 | Hiba | `hiba` | [Voir la branche hiba](https://github.com/samrous6213/university-data-platform_v2/tree/hiba) |
 | Nezha | `nezha` | [Voir la branche nezha](https://github.com/samrous6213/university-data-platform_v2/tree/nezha) |
@@ -72,7 +72,7 @@ Chaque membre a sa propre documentation dans sa branche :
 | Membre | README | RUNBOOK | 
 |--------|--------|---------|
 | Sara Amrous| [README](https://github.com/samrous6213/university-data-platform_v2/blob/sara/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/sara/RUNBOOK.md) |
-| Chaimae | [README](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/RUNBOOK.md) | 
+| Chaimae hassari | [README](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/RUNBOOK.md) | 
 | Ayoub | [README](https://github.com/samrous6213/university-data-platform_v2/blob/ayoub/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/ayoub/RUNBOOK.md) | 
 | Hiba | [README](https://github.com/samrous6213/university-data-platform_v2/blob/hiba/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/hiba/RUNBOOK.md) | 
 | Nezha | [README](https://github.com/samrous6213/university-data-platform_v2/blob/nezha/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/nezha/RUNBOOK.md) |
@@ -88,7 +88,7 @@ Projet réalisé dans le cadre du challenge **University Data Platform** par :
 | Membre | Sources |
 |--------|---------|
 | **Sara Amrous(P1)** | UM5 Web, Toubkal, Crossref API |
-| **Chaimae (P2)** | UCA Web, IMIST, OpenAlex API |
+| **Chaimae hassari (P2)** | UCA Web, IMIST, OpenAlex API |
 | **Ayoub (P3)** | USMBA Web, Data.gov.ma, ORCID API |
 | **Hiba (P4)** | UH2C Web, HCP, OpenAlex API |
 | **Nezha (P5)** | USMS Web, MIT OCW, Crossref API |
