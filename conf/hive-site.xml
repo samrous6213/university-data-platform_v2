@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configuration>
+
+  <property>
+    <name>hive.metastore.uris</name>
+    <value>thrift://hive-metastore:9083</value>
+    <description>Thrift URI of the remote Metastore server.</description>
+  </property>
+
+  <property>
+    <name>hive.metastore.schema.evolution</name>
+    <value>true</value>
+    <description>Allow Metastore to evolve its schema for Hudi tables.</description>
+  </property>
+
+  <property>
+    <name>hive.metastore.warehouse.dir</name>
+    <value>s3a://hudi/warehouse</value>
+    <description>Root warehouse directory for all Hive-managed tables.</description>
+  </property>
+
+  <property>
+    <name>hive.metastore.warehouse.external.dir</name>
+    <value>s3a://hudi/warehouse</value>
+    <description>Root directory for external tables backed by Hudi on MinIO.</description>
+  </property>
+
+</configuration>

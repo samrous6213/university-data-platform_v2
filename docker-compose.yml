@@ -24,6 +24,28 @@ services:
       retries: 3
 
   # ────────────────────────────────────────
+  # 1b. MINIO BUCKET INIT
+  # ────────────────────────────────────────
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/raw-json &&
+      mc mb --ignore-existing local/raw-html &&
+      mc mb --ignore-existing local/raw-documents &&
+      mc mb --ignore-existing local/raw-images &&
+      mc mb --ignore-existing local/raw-logs &&
+      mc mb --ignore-existing local/raw-web-html &&
+      mc mb --ignore-existing local/hudi &&
+      echo 'All buckets created.'
+      "
+
+  # ────────────────────────────────────────
   # 2. POSTGRES (pour Hive Metastore)
   # ────────────────────────────────────────
   postgres:
@@ -45,21 +67,53 @@ services:
       retries: 5
 
   # ────────────────────────────────────────
+  # 2b. POSTGRES (pour Metabase)
+  # ────────────────────────────────────────
+  metabase-postgres:
+    image: postgres:13
+    container_name: university-metabase-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: metabase
+      POSTGRES_USER: metabase
+      POSTGRES_PASSWORD: metabase
+    ports:
+      - "5434:5432"
+    volumes:
+      - metabase_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metabase -d metabase"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ────────────────────────────────────────
   # 3. HIVE METASTORE (Catalogue SQL)
   # ────────────────────────────────────────
   hive-metastore:
-    image: bitsondatadev/hive-metastore:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.hive
     container_name: hive-metastore
     restart: unless-stopped
     environment:
-      DB_DRIVER: postgres
       METASTORE_DB_HOST: postgres
+      METASTORE_DB_PORT: 5432
       METASTORE_DB_NAME: metastore
       METASTORE_DB_USER: hive
       METASTORE_DB_PASSWORD: hive
+      METASTORE_PORT: 9083
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_REGION: us-east-1
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./conf/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
     ports:
       - "9083:9083"
 
@@ -75,6 +129,8 @@ services:
     volumes:
       - ./src:/opt/spark/work-dir/src
       - ./data:/opt/spark/work-dir/data
+      - ./conf/hive-site.xml:/opt/spark/conf/hive-site.xml:ro
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
     command: >
       /opt/spark/bin/spark-class
       org.apache.spark.deploy.master.Master
@@ -83,6 +139,11 @@ services:
       - "8080:8080"
     environment:
       SPARK_MASTER_HOST: spark-master
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      MINIO_ENDPOINT: http://university-minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
 
   # ────────────────────────────────────────
   # 5. SPARK WORKER (Esclave)
@@ -98,6 +159,8 @@ services:
     volumes:
       - ./src:/opt/spark/work-dir/src
       - ./data:/opt/spark/work-dir/data
+      - ./conf/hive-site.xml:/opt/spark/conf/hive-site.xml:ro
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
     command: >
       /opt/spark/bin/spark-class
       org.apache.spark.deploy.worker.Worker
@@ -105,8 +168,50 @@ services:
     environment:
       SPARK_WORKER_CORES: 2
       SPARK_WORKER_MEMORY: 2g
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      MINIO_ENDPOINT: http://university-minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
     ports:
       - "8082:8081"
+
+  # ────────────────────────────────────────
+  # 5b. SPARK THRIFT SERVER (JDBC/ODBC)
+  # ────────────────────────────────────────
+  spark-thrift:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: spark-thrift
+    restart: unless-stopped
+    depends_on:
+      - spark-master
+      - hive-metastore
+    volumes:
+      - ./src:/opt/spark/work-dir/src
+      - ./data:/opt/spark/work-dir/data
+      - ./conf/hive-site.xml:/opt/spark/conf/hive-site.xml:ro
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+    command: >
+      bash -c "/opt/spark/sbin/start-thriftserver.sh
+      --master spark://spark-master:7077
+      --hiveconf hive.metastore.uris=thrift://hive-metastore:9083
+      --conf spark.sql.catalogImplementation=hive
+      --conf spark.hadoop.fs.s3a.endpoint=http://university-minio:9000
+      --conf spark.hadoop.fs.s3a.access.key=minioadmin
+      --conf spark.hadoop.fs.s3a.secret.key=minioadmin
+      --conf spark.hadoop.fs.s3a.path.style.access=true
+      --conf spark.hadoop.fs.s3a.connection.ssl.enabled=false
+      && tail -f /dev/null"
+    ports:
+      - "10000:10000"
+    environment:
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      MINIO_ENDPOINT: http://university-minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
 
   # ────────────────────────────────────────
   # 6. ELASTICSEARCH (Recherche plein-texte)
@@ -153,17 +258,17 @@ services:
     container_name: university-metabase
     restart: unless-stopped
     depends_on:
-      postgres:
+      metabase-postgres:
         condition: service_healthy
     ports:
       - "3000:3000"
     environment:
       MB_DB_TYPE: postgres
-      MB_DB_DBNAME: metastore
-      MB_DB_HOST: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_HOST: metabase-postgres
       MB_DB_PORT: 5432
-      MB_DB_USER: hive
-      MB_DB_PASS: hive
+      MB_DB_USER: metabase
+      MB_DB_PASS: metabase
 
   # ────────────────────────────────────────
   # 9. POSTGRES (pour Airflow)
@@ -190,13 +295,16 @@ services:
   # 10. AIRFLOW INIT (Création du compte admin)
   # ────────────────────────────────────────
   airflow-init:
-    image: apache/airflow:2.10.0-python3.11
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     container_name: airflow-init
     depends_on:
       airflow-postgres:
         condition: service_healthy
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: "115yy9L1p08Fi_CtIh8QyWuiECYL1fK7WBBaOUlTu1I="
     command: >
       bash -c "
       airflow db migrate &&
@@ -216,7 +324,9 @@ services:
   # 11. AIRFLOW WEBSERVER (UI)
   # ────────────────────────────────────────
   airflow-webserver:
-    image: apache/airflow:2.10.0-python3.11
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     container_name: airflow-webserver
     restart: unless-stopped
     depends_on:
@@ -227,10 +337,15 @@ services:
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      PYTHONPATH: /opt/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: "e277777f8e45232f248ef3b223ad2f52439873cdb93b0c8aa6608f04bae6c42e"
+      AIRFLOW__CORE__FERNET_KEY: "115yy9L1p08Fi_CtIh8QyWuiECYL1fK7WBBaOUlTu1I="
+      PYTHONPATH: /opt/spark/work-dir
+      AIRFLOW_CONN_SPARK_DEFAULT: "spark://spark-master:7077"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
+      - ./src:/opt/spark/work-dir/src
+      - ./data:/opt/spark/work-dir/data
     command: webserver
     ports:
       - "8081:8080"   # UI Airflow (accessible sur http://localhost:8081)
@@ -244,7 +359,9 @@ services:
   # 12. AIRFLOW SCHEDULER
   # ────────────────────────────────────────
   airflow-scheduler:
-    image: apache/airflow:2.10.0-python3.11
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     container_name: airflow-scheduler
     restart: unless-stopped
     depends_on:
@@ -255,10 +372,15 @@ services:
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      PYTHONPATH: /opt/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: "e277777f8e45232f248ef3b223ad2f52439873cdb93b0c8aa6608f04bae6c42e"
+      AIRFLOW__CORE__FERNET_KEY: "115yy9L1p08Fi_CtIh8QyWuiECYL1fK7WBBaOUlTu1I="
+      PYTHONPATH: /opt/spark/work-dir
+      AIRFLOW_CONN_SPARK_DEFAULT: "spark://spark-master:7077"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
+      - ./src:/opt/spark/work-dir/src
+      - ./data:/opt/spark/work-dir/data
     command: scheduler
 
 # ────────────────────────────────────────
@@ -267,6 +389,7 @@ services:
 volumes:
   minio_data:
   postgres_data:
+  metabase_postgres_data:
   elasticsearch_data:
   qdrant_data:
   airflow_postgres_data:

@@ -35,7 +35,7 @@ SOURCE_NAME   = "hcp_docs"
 # pathologique (redirections en boucle, paramètres infinis, etc.), mais à une valeur
 # largement supérieure à la taille estimée du site.
 MAX_DOCUMENTS = float("inf")
-MAX_PAGES     = 20000
+MAX_PAGES     = 200
 SLEEP_BETWEEN = 0.3
 REQUEST_TIMEOUT = 25
 MAX_RETRIES   = 2

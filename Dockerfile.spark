@@ -2,6 +2,11 @@ FROM apache/spark:3.5.1
 
 USER root
 
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Python packages
 RUN pip3 install --no-cache-dir \
     PyMuPDF \
     python-docx \
@@ -10,7 +15,21 @@ RUN pip3 install --no-cache-dir \
     openpyxl \
     minio \
     beautifulsoup4 \
-    lxml
+    lxml \
     Pillow
+
+# Download JARs into Spark's classpath at build time.
+# PYSPARK_SUBMIT_ARGS is ignored by `spark-class` (used by Master/Worker),
+# so JARs MUST be present in /opt/spark/jars/ on the classpath directly.
+RUN curl -fSL -o /opt/spark/jars/hudi-spark3.5-bundle_2.12-0.15.0.jar \
+      "https://repo1.maven.org/maven2/org/apache/hudi/hudi-spark3.5-bundle_2.12/0.15.0/hudi-spark3.5-bundle_2.12-0.15.0.jar" && \
+    curl -fSL -o /opt/spark/jars/hadoop-aws-3.3.4.jar \
+      "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar" && \
+    curl -fSL -o /opt/spark/jars/aws-java-sdk-bundle-1.12.262.jar \
+      "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar"
+
+# MinIO S3A configuration applied to ALL Spark sessions (spark-shell, spark-submit, spark-class).
+# This overrides the AWS SDK default endpoint (s3.amazonaws.com) at the image level.
+COPY conf/spark-defaults.conf /opt/spark/conf/spark-defaults.conf
 
 USER spark

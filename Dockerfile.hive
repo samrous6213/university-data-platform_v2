@@ -1,0 +1,26 @@
+FROM apache/hive:4.0.0
+
+USER root
+
+RUN apt-get update && \
+    apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN curl -fSL -o /opt/hive/lib/postgres-jdbc.jar \
+    "https://jdbc.postgresql.org/download/postgresql-42.7.3.jar"
+
+RUN curl -fSL -o /opt/hadoop/share/hadoop/tools/lib/hadoop-aws-3.3.6.jar \
+    "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.6/hadoop-aws-3.3.6.jar" && \
+    curl -fSL -o /opt/hadoop/share/hadoop/tools/lib/aws-java-sdk-bundle-1.12.262.jar \
+    "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar"
+
+COPY conf/hive-entrypoint.sh /opt/hive/bin/hive-entrypoint.sh
+
+RUN chmod +x /opt/hive/bin/hive-entrypoint.sh
+
+ENV HADOOP_OPTIONAL_TOOLS=hadoop-aws
+ENV HADOOP_CLASSPATH=/opt/hadoop/share/hadoop/tools/lib/*
+
+USER hive
+
+ENTRYPOINT ["/opt/hive/bin/hive-entrypoint.sh"]

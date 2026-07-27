@@ -1,0 +1,32 @@
+FROM apache/airflow:2.10.0-python3.11
+
+USER root
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends openjdk-17-jdk-headless procps && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH=$JAVA_HOME/bin:$PATH
+ENV PYTHONPATH=/opt/spark/work-dir
+
+USER airflow
+
+RUN pip install --no-cache-dir \
+    "apache-airflow-providers-apache-spark==4.9.0" \
+    "minio" \
+    "requests" \
+    "beautifulsoup4" \
+    "lxml" \
+    "pandas" \
+    "pymupdf" \
+    "psycopg2-binary" \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.0/constraints-3.11.txt"
+
+RUN PYSPARK_JARS=$(python3 -c "import pyspark, os; print(os.path.join(os.path.dirname(pyspark.__file__), 'jars'))") && \
+    curl -fSL -o "$PYSPARK_JARS/hudi-spark3.5-bundle_2.12-0.15.0.jar" \
+      "https://repo1.maven.org/maven2/org/apache/hudi/hudi-spark3.5-bundle_2.12/0.15.0/hudi-spark3.5-bundle_2.12-0.15.0.jar" && \
+    curl -fSL -o "$PYSPARK_JARS/hadoop-aws-3.3.4.jar" \
+      "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar" && \
+    curl -fSL -o "$PYSPARK_JARS/aws-java-sdk-bundle-1.12.262.jar" \
+      "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar"

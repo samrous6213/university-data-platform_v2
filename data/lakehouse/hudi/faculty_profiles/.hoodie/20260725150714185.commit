@@ -1,0 +1,38 @@
+{
+  "partitionToWriteStats" : {
+    "source_system=raw-json" : [ {
+      "fileId" : "26475780-c337-43ac-b68c-6491e836066e-0",
+      "path" : "source_system=raw-json/26475780-c337-43ac-b68c-6491e836066e-0_0-89-100_20260725150714185.parquet",
+      "cdcStats" : null,
+      "prevCommit" : "null",
+      "numWrites" : 16,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 0,
+      "numInserts" : 16,
+      "totalWriteBytes" : 437915,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "source_system=raw-json",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 437915,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 0,
+        "totalCreateTime" : 5292
+      }
+    } ]
+  },
+  "compacted" : false,
+  "extraMetadata" : {
+    "schema" : "{\"type\":\"record\",\"name\":\"faculty_profiles_record\",\"namespace\":\"hoodie.faculty_profiles\",\"fields\":[{\"name\":\"record_id\",\"type\":\"string\"},{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"title\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"department\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"research_interests\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"source_system\",\"type\":\"string\"},{\"name\":\"source_url\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"crawl_timestamp\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}},{\"name\":\"year\",\"type\":[\"null\",\"int\"],\"default\":null}]}"
+  },
+  "operationType" : "UPSERT"
+}
