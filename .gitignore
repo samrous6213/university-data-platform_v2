@@ -1,5 +1,5 @@
-#python
-pycache/
+# Python
+__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -8,22 +8,56 @@ env/
 venv/
 ENV/
 .venv/
-#Ide 
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-#os
+
+# OS
 .DS_Store
 Thumbs.db
-#data files
-*.json
-*.csv
+
+# Data files (don't commit large data)
+data/raw/
+data/processed/
 *.parquet
 *.hudi
-#logs
-*.log
+
+# Logs
 logs/
-#local configuration 
+*.log
+
+# Airflow
+airflow_home/
+*.db
+
+# Local configuration
 .env
-docker-compose.override.yml
+configs/local_*.py
+
+ # Local JAR dependencies
+jars/
+*.jar
+
+# Generated data outputs
+data/
+*.parquet
+*.crc
+_SUCCESS
+
+# Spark/Hudi local outputs
+**/.hoodie/
+
+# Project generated files
+khan_academy_crawl_checkpoint.txt
+uiz_image_cache.json
+safaa_metabase_export.sql
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Notebook checkpoints
+.ipynb_checkpoints/

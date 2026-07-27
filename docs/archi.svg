@@ -1,0 +1,128 @@
+<svg width="1000" height="1150" viewBox="0 0 1000 1150" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .title { font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; fill: #222; }
+    .section-title { font-family: Arial, sans-serif; font-size: 22px; font-weight: bold; fill: #222; }
+    .text { font-family: Arial, sans-serif; font-size: 15px; fill: #222; }
+    .small { font-family: Arial, sans-serif; font-size: 12px; fill: #333; }
+    .tiny { font-family: Arial, sans-serif; font-size: 11px; fill: #333; }
+    .box { stroke: #111; stroke-width: 1.5; rx: 12; ry: 12; }
+    .source { fill: #dff2ff; }
+    .airflow { fill: #fdebf6; }
+    .storage { fill: #f5fff0; }
+    .hive { fill: #d7ffb8; }
+    .postgres { fill: #b8ff7a; }
+    .services { fill: #eee5ff; }
+    .service-box { fill: #d7c3ff; }
+    .arrow { stroke: #333; stroke-width: 1.5; marker-end: url(#arrowhead); fill: none; }
+    .dash { stroke-dasharray: 6 5; }
+  </style>
+
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+  </defs>
+
+  <!-- SOURCES -->
+  <rect x="40" y="30" width="920" height="150" class="box" fill="#f7fbff"/>
+  <text x="500" y="70" text-anchor="middle" class="section-title">SOURCES</text>
+
+  <rect x="85" y="100" width="220" height="55" class="box source"/>
+  <text x="195" y="132" text-anchor="middle" class="text">UIZ Web (HTML)</text>
+  <text x="195" y="162" text-anchor="middle" class="tiny">scraping</text>
+
+  <rect x="390" y="100" width="220" height="55" class="box source"/>
+  <text x="500" y="132" text-anchor="middle" class="text">ORCID API</text>
+  <text x="500" y="162" text-anchor="middle" class="tiny">API call</text>
+
+  <rect x="695" y="100" width="220" height="55" class="box source"/>
+  <text x="805" y="132" text-anchor="middle" class="text">Khan Academy</text>
+  <text x="805" y="150" text-anchor="middle" class="text">(Documents)</text>
+  <text x="805" y="170" text-anchor="middle" class="tiny">document source</text>
+
+  <!-- AIRFLOW -->
+  <rect x="40" y="210" width="920" height="170" class="box airflow"/>
+  <text x="500" y="255" text-anchor="middle" class="section-title">AIRFLOW + DAG</text>
+
+  <rect x="85" y="295" width="220" height="70" class="box" fill="#fff3fb"/>
+  <text x="195" y="325" text-anchor="middle" class="text">Apache Airflow</text>
+  <text x="195" y="348" text-anchor="middle" class="small">dags/safaa_end_to_end_pipeline.py</text>
+
+  <rect x="350" y="285" width="560" height="85" class="box" fill="#fff3fb"/>
+  <text x="630" y="315" text-anchor="middle" class="text">DAG: safaa_end_to_end_pipeline</text>
+  <text x="630" y="342" text-anchor="middle" class="small">
+    check_services → ingest_web_uiz / ingest_api_orcid / ingest_documents
+  </text>
+  <text x="630" y="362" text-anchor="middle" class="small">
+    → store_raw_minio → transform_spark → write_hudi → register_hive
+  </text>
+  <text x="630" y="382" text-anchor="middle" class="small">
+    → index_elasticsearch → load_metabase → check_metabase
+  </text>
+
+  <!-- STORAGE + TRANSFORMATION -->
+  <rect x="40" y="420" width="920" height="460" class="box storage"/>
+  <text x="500" y="465" text-anchor="middle" class="section-title">STOCKAGE + TRANSFORMATION</text>
+
+  <rect x="145" y="500" width="710" height="135" class="box" fill="#fbfff8"/>
+  <text x="500" y="530" text-anchor="middle" class="text">MinIO (Stockage raw)</text>
+  <text x="500" y="555" text-anchor="middle" class="small">raw-web-html /</text>
+  <text x="500" y="575" text-anchor="middle" class="small">raw-json /</text>
+  <text x="500" y="595" text-anchor="middle" class="small">raw-documents / raw-images / raw-logs</text>
+  <text x="500" y="620" text-anchor="middle" class="small">curated copied/centralized when needed</text>
+
+  <rect x="145" y="670" width="710" height="70" class="box" fill="#eefee8"/>
+  <text x="500" y="702" text-anchor="middle" class="text">Spark 3.5.1</text>
+  <text x="500" y="724" text-anchor="middle" class="small">transformations → curated Parquet</text>
+
+  <rect x="145" y="765" width="710" height="70" class="box" fill="#e6ffd6"/>
+  <text x="500" y="797" text-anchor="middle" class="text">Apache Hudi</text>
+  <text x="500" y="819" text-anchor="middle" class="small">faculty_profiles / university_news / research_publications</text>
+
+  <rect x="190" y="850" width="620" height="65" class="box hive"/>
+  <text x="500" y="880" text-anchor="middle" class="text">Hive Metastore</text>
+  <text x="500" y="902" text-anchor="middle" class="small">catalog SQL for Hudi tables</text>
+
+  <rect x="190" y="940" width="620" height="65" class="box postgres"/>
+  <text x="500" y="970" text-anchor="middle" class="text">PostgreSQL</text>
+  <text x="500" y="992" text-anchor="middle" class="small">schema: safaa_dashboard for Metabase</text>
+
+  <!-- SERVICES -->
+  <rect x="40" y="1030" width="920" height="95" class="box services"/>
+  <text x="500" y="1062" text-anchor="middle" class="section-title">SERVICES</text>
+
+  <rect x="95" y="1080" width="300" height="55" class="box service-box"/>
+  <text x="245" y="1102" text-anchor="middle" class="text">Elasticsearch 8.11</text>
+  <text x="245" y="1122" text-anchor="middle" class="small">indices: safaa_* / 79 + 151 + 969 docs</text>
+
+  <rect x="605" y="1080" width="300" height="55" class="box service-box"/>
+  <text x="755" y="1102" text-anchor="middle" class="text">Metabase</text>
+  <text x="755" y="1122" text-anchor="middle" class="small">Safaa dashboard / KPIs / charts</text>
+
+  <!-- ARROWS -->
+  <line x1="195" y1="155" x2="195" y2="295" class="arrow"/>
+  <line x1="500" y1="155" x2="500" y2="285" class="arrow"/>
+  <line x1="805" y1="155" x2="805" y2="285" class="arrow"/>
+
+  <line x1="500" y1="370" x2="500" y2="500" class="arrow"/>
+  <text x="540" y="430" class="tiny">writes raw data</text>
+
+  <line x1="500" y1="635" x2="500" y2="670" class="arrow"/>
+  <text x="540" y="660" class="tiny">reads raw data</text>
+
+  <line x1="500" y1="740" x2="500" y2="765" class="arrow"/>
+  <text x="540" y="758" class="tiny">writes curated data</text>
+
+  <line x1="500" y1="835" x2="500" y2="850" class="arrow"/>
+  <text x="540" y="846" class="tiny">creates catalog</text>
+
+  <line x1="500" y1="915" x2="500" y2="940" class="arrow"/>
+  <text x="540" y="932" class="tiny">loads data</text>
+
+  <line x1="245" y1="765" x2="245" y2="1080" class="arrow dash"/>
+  <text x="260" y="930" class="tiny">indexes data</text>
+
+  <line x1="755" y1="1005" x2="755" y2="1080" class="arrow"/>
+  <text x="775" y="1048" class="tiny">reads dashboard data</text>
+
+</svg>

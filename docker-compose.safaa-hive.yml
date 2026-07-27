@@ -1,0 +1,36 @@
+services:
+
+  safaa-hive-mysql:
+    image: mysql:8.0
+    container_name: safaa-hive-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: hive
+      MYSQL_DATABASE: metastore
+      MYSQL_USER: hive
+      MYSQL_PASSWORD: hive
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - safaa_hive_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uhive", "-phive"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  safaa-hive-metastore:
+    image: bitsondatadev/hive-metastore:latest
+    container_name: safaa-hive-metastore
+    restart: unless-stopped
+    depends_on:
+      safaa-hive-mysql:
+        condition: service_healthy
+    environment:
+      METASTORE_DB_HOSTNAME: safaa-hive-mysql
+    volumes:
+      - ./docker/safaa-hive/metastore-site.xml:/opt/apache-hive-metastore-3.0.0-bin/conf/metastore-site.xml:ro
+    ports:
+      - "9084:9083"
+
+volumes:
+  safaa_hive_mysql_data:
