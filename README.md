@@ -24,7 +24,7 @@ Plateforme d'ingestion et d'analyse de données académiques pour les universit�
 | Hiba Hnaine            | `hiba`    | UH2C        | OpenAlex    | HCP                   | 
 | Nezha Ait EL had | `nezha`   | USMS        | Crossref    | MIT OCW               | 
 | Safaa Toukil          | `safaa`   | UIZ         | ORCID       | Khan Academy          |
-| Fahd Souida            | `fahd`    | ONOUSC      | OpenAlex    | Wikipedia Mathematics |
+| Fahd Souida            | `fahd`    | UH2C     | OpenAlex    |  | Data.gov.ma
 
 ---
 
@@ -93,5 +93,5 @@ Projet réalisé dans le cadre du challenge **University Data Platform** par :
 | **Hiba Hnaine (P4)** | UH2C Web, HCP, OpenAlex API |
 | **Nezha Ait EL had (P5)** | USMS Web, MIT OCW, Crossref API |
 | **Safaa Toukil (P6)** | UIZ Web, Khan Academy, ORCID API |
-| **Fahd Souida (P7)** | ONOUSC Web, Wikipedia Mathematics, OpenAlex API |
+| **Fahd Souida (P7)** | UH2C Web, Data.gov.ma, OpenAlex API |
 
