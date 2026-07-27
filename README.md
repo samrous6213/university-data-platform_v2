@@ -16,15 +16,15 @@ Plateforme d'ingestion et d'analyse de données académiques pour les universit�
 
 ## 👥 Répartition du travail par membre
 
-| Membre | Branche | Sources Web | Sources API | Sources Docs | Fichiers principaux |
-|--------|---------|-------------|-------------|--------------|---------------------|
-| Sara Amrous | `sara` | UM5 | Crossref | Toubkal | `src/ingestion/web/um5.py`, `src/ingestion/api/crossref.py`, `src/ingestion/docs/toubkal.py` |
-| Chaimae | `chaimae` | UCA | OpenAlex | IMIST | `src/ingestion/web/uca.py`, `src/ingestion/api/openalex.py`, `src/ingestion/docs/imist.py` |
-| Ayoub | `ayoub` | USMBA | ORCID | Data.gov.ma | `src/ingestion/web/usmba.py`, `src/ingestion/api/orcid.py`, `src/ingestion/docs/datagovma.py` |
-| Hiba | `hiba` | UH2C | OpenAlex | HCP | `src/ingestion/web/uh2c.py`, `src/ingestion/api/openalex.py`, `src/ingestion/docs/hcp.py` |
-| Nezha | `nezha` | USMS | Crossref | MIT OCW | `src/ingestion/web/usms.py`, `src/ingestion/api/crossref.py`, `src/ingestion/docs/mit_ocw.py` |
-| Safaa | `safaa` | UIZ | ORCID | Khan Academy | `src/ingestion/web/uiz.py`, `src/ingestion/api/orcid.py`, `src/ingestion/docs/khan_academy.py` |
-| Fahd | `fahd` | ONOUSC | OpenAlex | Wikipedia Mathematics | `src/ingestion/web/onousc.py`, `src/ingestion/api/openalex.py`, `src/ingestion/docs/wikipedia_math.py` |
+| Membre | Branche | Sources Web | Sources API | Sources Docs |
+|--------|---------|-------------|-------------|--------------|
+| Sara Amrous | `sara` | UM5 | Crossref | Toubkal | 
+| Chaimae | `chaimae` | UCA | OpenAlex | IMIST | 
+| Ayoub | `ayoub` | USMBA | ORCID | Data.gov.ma | 
+| Hiba | `hiba` | UH2C | OpenAlex | HCP | 
+| Nezha | `nezha` | USMS | Crossref | MIT OCW | 
+| Safaa | `safaa` | UIZ | ORCID | Khan Academy |
+| Fahd | `fahd` | ONOUSC | OpenAlex | Wikipedia Mathematics |
 
 ---
 
@@ -39,30 +39,6 @@ Plateforme d'ingestion et d'analyse de données académiques pour les universit�
 | Nezha | `nezha` | [Voir la branche nezha](https://github.com/samrous6213/university-data-platform_v2/tree/nezha) |
 | Safaa | `safaa` | [Voir la branche safaa](https://github.com/samrous6213/university-data-platform_v2/tree/safaa) |
 | Fahd | `fahd` | [Voir la branche fahd](https://github.com/samrous6213/university-data-platform_v2/tree/fahd) |
-
----
-
-## ✅ Statut des sources
-
-| Source | Membre | Branche | Statut |
-|--------|--------|---------|--------|
-| UM5 Web | Sara Amrous| `sara` | ✅ Fonctionnel |
-| Toubkal | Sara Amrous| `sara` | ✅ Fonctionnel |
-| Crossref API | Sara Amrous| `sara` | ✅ Fonctionnel |
-| UCA Web | Chaimae | `chaimae` | ✅ Fonctionnel |
-| OpenAlex API | Chaimae, Hiba, Fahd | `chaimae`, `hiba`, `fahd` | ✅ Fonctionnel |
-| IMIST | Chaimae | `chaimae` | ✅ Fonctionnel |
-| USMBA Web | Ayoub | `ayoub` | ✅ Fonctionnel |
-| ORCID API | Ayoub, Safaa | `ayoub`, `safaa` | ✅ Fonctionnel |
-| Data.gov.ma | Ayoub | `ayoub` | ✅ Fonctionnel |
-| UH2C Web | Hiba | `hiba` | ✅ Fonctionnel |
-| HCP | Hiba | `hiba` | ✅ Fonctionnel |
-| USMS Web | Nezha | `nezha` | ✅ Fonctionnel |
-| MIT OCW | Nezha | `nezha` | ✅ Fonctionnel |
-| UIZ Web | Safaa | `safaa` | ✅ Fonctionnel |
-| Khan Academy | Safaa | `safaa` | ✅ Fonctionnel |
-| ONOUSC Web | Fahd | `fahd` | ✅ Fonctionnel |
-| Wikipedia Mathematics | Fahd | `fahd` | ✅ Fonctionnel |
 
 ---
 
