@@ -69,15 +69,15 @@ Plateforme d'ingestion et d'analyse de données académiques pour les universit�
 
 Chaque membre a sa propre documentation dans sa branche :
 
-| Membre | README | RUNBOOK | Demo Script |
-|--------|--------|---------|-------------|
-| Sara Amrous| [README](https://github.com/samrous6213/university-data-platform_v2/blob/sara/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/sara/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/sara/docs/demo-script.md) |
-| Chaimae | [README](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/docs/demo-script.md) |
-| Ayoub | [README](https://github.com/samrous6213/university-data-platform_v2/blob/ayoub/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/ayoub/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/ayoub/docs/demo-script.md) |
-| Hiba | [README](https://github.com/samrous6213/university-data-platform_v2/blob/hiba/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/hiba/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/hiba/docs/demo-script.md) |
-| Nezha | [README](https://github.com/samrous6213/university-data-platform_v2/blob/nezha/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/nezha/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/nezha/docs/demo-script.md) |
-| Safaa | [README](https://github.com/samrous6213/university-data-platform_v2/blob/safaa/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/safaa/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/safaa/docs/demo-script.md) |
-| Fahd | [README](https://github.com/samrous6213/university-data-platform_v2/blob/fahd/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/fahd/RUNBOOK.md) | [Demo Script](https://github.com/samrous6213/university-data-platform_v2/blob/fahd/docs/demo-script.md) |
+| Membre | README | RUNBOOK | 
+|--------|--------|---------|
+| Sara Amrous| [README](https://github.com/samrous6213/university-data-platform_v2/blob/sara/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/sara/RUNBOOK.md) |
+| Chaimae | [README](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/chaimae/RUNBOOK.md) | 
+| Ayoub | [README](https://github.com/samrous6213/university-data-platform_v2/blob/ayoub/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/ayoub/RUNBOOK.md) | 
+| Hiba | [README](https://github.com/samrous6213/university-data-platform_v2/blob/hiba/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/hiba/RUNBOOK.md) | 
+| Nezha | [README](https://github.com/samrous6213/university-data-platform_v2/blob/nezha/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/nezha/RUNBOOK.md) |
+| Safaa | [README](https://github.com/samrous6213/university-data-platform_v2/blob/safaa/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/safaa/RUNBOOK.md) | 
+| Fahd | [README](https://github.com/samrous6213/university-data-platform_v2/blob/fahd/README.md) | [RUNBOOK](https://github.com/samrous6213/university-data-platform_v2/blob/fahd/RUNBOOK.md) | 
 
 ---
 
