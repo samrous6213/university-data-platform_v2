@@ -1,0 +1,51 @@
+# Image Airflow custom pour University Data Platform.
+#
+# Objectif : faire tourner l'ingestion (requests/BeautifulSoup) ET les jobs
+# Spark/Hudi DIRECTEMENT dans le conteneur Airflow (scheduler), pour ne plus
+# dependre de SSHOperator + hote Windows + fichiers .bat.
+#
+# Ajouts par rapport a l'image apache/airflow de base :
+#   - Java 17 (requis par PySpark, absent de l'image de base)
+#   - Les dependances du projet (requirements.txt : pyspark, requests,
+#     beautifulsoup4, minio, elasticsearch, psycopg2-binary, ...)
+#   - Un "warm-up" du cache Ivy : resout et telecharge une fois pour toutes,
+#     AU BUILD de l'image, les jars Hudi + hadoop-aws declares dans
+#     spark_session.py (spark.jars.packages). Sans ca, le premier
+#     spark-submit de chaque run tenterait de re-telecharger ~150 Mo depuis
+#     Maven Central -> lent et fragile pendant le stress-test live du jury.
+#     Combine avec le volume nomme airflow_ivy_cache (docker-compose.yml),
+#     le cache est aussi persiste entre redemarrages de conteneur.
+
+FROM apache/airflow:2.10.0-python3.11
+
+USER root
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openjdk-17-jdk-headless \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+USER airflow
+
+COPY requirements.txt /tmp/requirements.txt
+
+# apache-airflow lui-meme est deja installe dans l'image de base ; la ligne
+# commentee "# apache-airflow==2.7.1" dans requirements.txt est ignoree par
+# pip (commentaire), donc pas de conflit de version a gerer ici.
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Warm-up du cache Ivy (voir explication en tete de fichier). Les valeurs
+# des packages DOIVENT rester synchronisees avec HUDI_PACKAGE /
+# AWS_BUNDLE_PACKAGE dans src/transformations/spark/config/spark_session.py.
+RUN python -c "\
+from pyspark.sql import SparkSession; \
+spark = SparkSession.builder.appName('ivy-warmup') \
+    .master('local[1]') \
+    .config('spark.jars.packages', 'org.apache.hudi:hudi-spark3.4-bundle_2.12:0.14.1,org.apache.hadoop:hadoop-aws:3.3.4') \
+    .getOrCreate(); \
+spark.stop()"
+
+WORKDIR /opt/airflow

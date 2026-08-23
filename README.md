@@ -1,41 +1,36 @@
-# University Data Platform — MVP
+# University Data Platform
+
 ![Status](https://img.shields.io/badge/status-mvp-blue)
 ![Python](https://img.shields.io/badge/python-3.11-blue)
-![Spark](https://img.shields.io/badge/Spark-native--host-orange)
+![Spark](https://img.shields.io/badge/Spark-in--container-orange)
 ![Docker](https://img.shields.io/badge/docker-compose-blue)
-![Airflow](https://img.shields.io/badge/Airflow-docker--SSHOperator-blue)
+![Airflow](https://img.shields.io/badge/Airflow-in--container-blue)
 
-> **Plateforme d'ingestion & d'analyse de données académiques** pour un environnement universitaire.
->
-> Données : **OpenAlex (API)**, **data.gov.ma / CKAN (documents)**, **sites d'établissements (Web statique)** → normalisation → stockage data lake + analytics (Spark/Hudi, Hive/Metastore, PostgreSQL, Elasticsearch) + visualisation **Metabase** + recherche via **FastAPI**.
+> Plateforme data **end-to-end** pour un environnement universitaire : ingestion multi-sources, lakehouse, orchestration, BI et recherche — entièrement conteneurisée.
 
 ---
 
-## 1) Présentation générale
+## Contexte
 
-**University Data Platform** est une plateforme data **end-to-end**, réalisée dans le cadre du **University Data Platform Challenge** (Best-of-9 MVP, 3 semaines), conçue pour automatiser :
+Ce projet est né dans le cadre du **University Data Platform Challenge** (compétition Best-of-9 MVP, 3 semaines, 9 équipes) : construire une plateforme data complète en respectant un cahier des charges strict — fiabilité et rejouabilité comme critère le plus pondéré, deux tables Hudi obligatoires, exposition SQL via Hive, dashboard BI, recherche full-text, et orchestration Airflow.
 
-- **L'ingestion** de données depuis 3 types de sources hétérogènes :
-  - **OpenAlex** (API) : publications et métadonnées académiques
-  - **data.gov.ma / CKAN** (fichiers/documents) : jeux de données ouvertes
-  - **Sites d'établissements** (web statique, `BeautifulSoup`) : profils faculty, catalogues de cours
-- **La transformation** et la structuration :
-  - via **Apache Spark** (jobs `faculty_profiles_job`, `course_catalog_job`)
-  - avec une couche **curated** en **Apache Hudi**
-  - et un **catalogue SQL** via **Hive Metastore**
-- **La synchronisation** vers les couches de restitution :
-  - **PostgreSQL** (pour Metabase)
-  - **Elasticsearch** (pour la recherche)
-- **La recherche** :
-  - via une **API FastAPI** (`src/api/search_api.py`) adossée à Elasticsearch
-- **La restitution BI** :
-  - via **Metabase** (dashboard KPIs)
-- **L'orchestration** :
-  - via **Apache Airflow** (conteneur Docker), avec exécution des tâches Spark/ingestion sur l'hôte via `SSHOperator`
+Après la compétition, j'ai continué à faire évoluer le projet à titre personnel : migration complète de l'orchestration vers une architecture Docker de bout en bout (voir section Architecture), nettoyage du repo, et documentation pour en faire une pièce de portfolio présentable et reproductible par n'importe qui, sur n'importe quel OS.
+
+**Sources ingérées :** OpenAlex (API), data.gov.ma / CKAN (documents), sites d'établissements universitaires marocains (web scraping statique).
 
 ---
 
-## 2) Architecture (description + diagramme textuel)
+## Ce que ça fait
+
+- **Ingère** des données depuis 3 types de sources hétérogènes (API REST, documents CKAN, HTML statique) avec retry/backoff, respect de `robots.txt`, et traçabilité complète (checksum, horodatage, source exacte pour chaque enregistrement)
+- **Transforme** avec Spark : normalisation de schéma, déduplication, contrôle qualité avec quarantaine des enregistrements invalides
+- **Stocke** en lakehouse avec Apache Hudi (upsert idempotent, versionné), catalogué dans Hive Metastore pour un accès SQL direct
+- **Restitue** via un dashboard Metabase (KPIs) et une API de recherche full-text (FastAPI + Elasticsearch, filtres par type d'entité et établissement)
+- **Orchestre** tout le pipeline avec Airflow, dont chaque tâche tourne directement dans le conteneur — aucune dépendance à l'OS hôte au-delà de Docker
+
+---
+
+## Architecture
 
 ```text
 [OpenAlex API] [data.gov.ma / CKAN] [Sites Web (BeautifulSoup)]
@@ -44,7 +39,7 @@
                 [MinIO S3 - raw zone]
                         |
                         v
-        [Spark - transformation, native sur l'hôte]
+     [Spark - transformation, dans le conteneur airflow-scheduler]
                         |
                         v
               [Apache Hudi - curated zone]
@@ -56,229 +51,118 @@
      [PostgreSQL] --> [Metabase]   [Elasticsearch] --> [FastAPI search_api]
 ```
 
-### Flux fonctionnel (high-level)
+### Tout tourne dans Docker, y compris Spark
 
-1. **Ingestion**
-   - `Fahd_openalex.py`, `fahd_datagov.py`, `generic_crawler.py` récupèrent les données.
-   - Les scripts écrivent des **fichiers bruts** et du **JSON structuré** dans **MinIO** via `fahd_client.py`.
-2. **Transformation**
-   - Spark lit depuis MinIO (`s3a://...`).
-   - Écrit les données en **curated** (Hudi) et crée/rafraîchit les tables **Hive**.
-3. **Synchronisation**
-   - `postgres_writer.py` alimente PostgreSQL pour Metabase.
-   - `es_writer.py` alimente Elasticsearch pour la recherche.
-4. **BI & Recherche**
-   - Metabase lit les tables structurées (via Postgres) et affiche les KPIs.
-   - `search_api.py` expose un endpoint de recherche mot-clé sur Elasticsearch.
+Airflow, l'ingestion et les jobs Spark s'exécutent tous **dans le même conteneur** `airflow-scheduler`, via une image custom (`Dockerfile.airflow`) qui embarque Java 17, PySpark et toutes les dépendances Python du projet. Le cache Ivy (jars Hudi/hadoop-aws) est pré-résolu **au build de l'image**, pas à chaque run — pour que le pipeline reste rapide et fiable même en cas de rerun répété.
 
-### Particularité : Airflow (Docker) + Spark (hôte)
+Le code (`src/`, `configs/`) est monté en volume dans le conteneur. `configs/spark_config.py` définit des valeurs par défaut `localhost`/`127.0.0.1` (utilisables hors Docker si besoin), que `docker-compose.yml` surcharge avec les noms de service Docker (`minio`, `hive-metastore`, `elasticsearch`, `postgres`) pour l'exécution normale.
 
-Airflow n'est pas supporté nativement sous Windows (conflits de dépendances `pydantic`/`typing_extensions`), et le conteneur Airflow n'embarque pas PySpark ni les jars Hudi. Le choix retenu :
-
-- **Airflow** : conteneur Docker (`docker-compose.yml`)
-- **Ingestion + Spark** : exécution native sur l'hôte Windows, dans l'environnement virtuel `.venv`
-- **Liaison** : chaque tâche Airflow est un `SSHOperator` qui déclenche un script `.bat` sur l'hôte via `host.docker.internal`
-
-Chaque tâche appelle un fichier `.bat` dédié plutôt qu'une commande inline, pour deux raisons :
-- éviter les problèmes de guillemets imbriqués mal transmis par `Win32-OpenSSH` → `cmd.exe`
-- forcer l'encodage UTF-8 de la console (`chcp 65001` + `set PYTHONIOENCODING=utf-8`), indispensable car les données scrapées contiennent des caractères arabes (établissements marocains bilingues fr/ar)
+Résultat : le projet se clone et se lance à l'identique sur Windows, macOS ou Linux — seul Docker est requis.
 
 ---
 
-## 3) Stack technologique
+## Stack technique
 
-- **Langage / runtime** : Python 3.11
-- **Orchestration** : **Apache Airflow** (Docker + `SSHOperator`)
-- **Ingestion** : scripts Python (API, documents, web)
-- **Stockage Data Lake** : **MinIO (S3 compatible)**
-- **Transformation** : **Apache Spark** (natif sur l'hôte)
-- **Curated format** : **Apache Hudi**
-- **Catalog SQL** : **Hive Metastore**
-- **Données structurées** : **PostgreSQL**
-- **Recherche** : **Elasticsearch** + **FastAPI**
-- **BI** : **Metabase**
-- **Conteneurisation** : **Docker Compose**
+| Couche | Techno |
+|---|---|
+| Orchestration | Apache Airflow (conteneurisé) |
+| Ingestion | Python (`requests`, `BeautifulSoup`, client MinIO) |
+| Data lake (raw) | MinIO (S3-compatible) |
+| Transformation | Apache Spark (PySpark 3.4.4) |
+| Lakehouse (curated) | Apache Hudi (Copy-on-Write, upsert) |
+| Catalogue SQL | Hive Metastore |
+| Données structurées | PostgreSQL |
+| Recherche | Elasticsearch + FastAPI |
+| BI | Metabase |
+| Conteneurisation | Docker Compose |
 
 ---
 
-## 4) Structure du projet
+## Structure du projet
 
 ```text
-university-data-platform_v2/
+university-data-platform/
 ├── dags/
-│   └── university_pipeline_dag.py       # DAG unique : ingestion -> Spark
+│   └── university_pipeline_dag.py       # DAG : ingestion -> Spark, tout in-container
 ├── src/
-│   ├── api/
-│   │   └── search_api.py                # API de recherche (FastAPI + Elasticsearch)
+│   ├── api/search_api.py                # API de recherche (FastAPI + Elasticsearch)
 │   ├── ingestion/
-│   │   ├── api/Fahd_openalex.py         # Source 1 : API OpenAlex
-│   │   ├── docs/fahd_datagov.py         # Source 2 : fichiers/documents (CKAN data.gov.ma)
+│   │   ├── api/                         # Source 1 : API OpenAlex
+│   │   ├── docs/                        # Source 2 : documents CKAN (data.gov.ma)
 │   │   └── web/generic_crawler.py       # Source 3 : web statique (BeautifulSoup)
-│   ├── storage/minio/fahd_client.py     # Client MinIO partagé
+│   ├── storage/minio/                # Client MinIO partagé
 │   ├── lakehouse/
 │   │   ├── hudi/hudi_writer.py
-│   │   ├── postgres/postgres_writer.py  # Sync vers Postgres (Metabase)
-│   │   └── elasticsearch/es_writer.py   # Sync vers Elasticsearch
+│   │   ├── postgres/postgres_writer.py
+│   │   └── elasticsearch/es_writer.py
 │   └── transformations/spark/
 │       ├── config/spark_session.py
-│       ├── jobs/                        # faculty_profiles_job.py, course_catalog_job.py, run_all.py
-│       ├── pipelines/                   # faculty_pipeline.py, course_pipeline.py
-│       ├── readers/                     # csv, html, json, pdf, xlsx
-│       ├── schemas/                     # faculty_profiles.py, course_catalog.py, common.py
-│       ├── transforms/                  # nettoyage, contrôles qualité, normalisation
-│       └── utils/                       # logging, retry
+│       ├── jobs/                        # faculty_profiles_job.py, course_catalog_job.py
+│       ├── pipelines/
+│       ├── readers/
+│       ├── schemas/
+│       ├── transforms/                  # nettoyage, qualité, normalisation
+│       └── utils/
 ├── configs/
-│   └── schools_config.json              # Liste des établissements à crawler
-├── debug/                               # Scripts de vérification manuelle
-├── jars/                                # Jars Spark (Hudi, connecteurs...)
-├── jdbc/                                # Driver JDBC Postgres
-├── run_ingestion_openalex.bat
-├── run_ingestion_datagov.bat
-├── run_ingestion_web.bat
-├── run_faculty_profiles.bat
-├── run_course_catalog.bat
+│   ├── schools_config.json              # Établissements à crawler
+│   └── spark_config.py                  # Endpoints MinIO/Hive/ES/Postgres
+├── debug/                                # Scripts de vérification manuelle par composant
+├── scripts/legacy_win/               # .bat historiques (debug hors Docker, non requis)
+├── jdbc/                                 # Driver JDBC Postgres
+├── Dockerfile.airflow                    # Image Airflow custom (Java + PySpark + deps)
 ├── docker-compose.yml
+├── .env.example
 ├── requirements.txt
-└── README.md
+├── README.md
+└── RUNBOOK.md
 ```
 
 ---
 
-## 5) Installation & démarrage (Docker Compose)
+## Démarrage rapide
 
-### Pré-requis
-- Windows avec **OpenSSH Server** actif (service `sshd` en `Running`)
-- **Docker Desktop**
-- **Python 3.11** + environnement virtuel `.venv` sur l'hôte
-- **PySpark** + jars Hudi disponibles dans `jars/`
-- Une paire de clés SSH pour la connexion Airflow → hôte
+**Prérequis :** Docker Desktop (Windows/macOS) ou Docker Engine (Linux). Rien d'autre.
 
-### Étapes
-
-```powershell
-# 1. Cloner le dépôt
-git clone https://github.com/samrous6213/university-data-platform_v2
-cd university-data-platform_v2
-
-# 2. Créer et activer l'environnement virtuel
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-
-# 3. Lancer les services Docker (Airflow, MinIO, Postgres, Elasticsearch, Hive Metastore)
-docker-compose up -d
-
-# 4. Générer une paire de clés SSH pour Airflow -> hôte (si pas déjà fait)
-ssh-keygen -t ed25519 -f airflow_home\ssh_keys\windows_host_key -N '""'
-# Ajouter la clé publique correspondante au fichier authorized_keys de l'hôte Windows
-
-# 5. Dans l'UI Airflow (Admin -> Connections), créer une connexion :
-#    Conn Id   : windows_host_ssh
-#    Conn Type : SSH
-#    Host      : host.docker.internal
-#    Port      : 22
-#    Username / clé privée : selon l'utilisateur Windows configuré
-```
-
-### Vérification rapide
 ```bash
-docker ps
+git clone <ton-repo>
+cd university-data-platform
+
+cp .env.example .env
+
+docker compose build airflow-init airflow-webserver airflow-scheduler
+docker compose up -d
+
+# Vérification
+docker compose exec airflow-scheduler airflow dags list-import-errors   # doit être vide
 ```
+
+Interface Airflow : http://localhost:8081 (`admin` / `admin`) → DAG `university_data_platform_daily` → **Trigger DAG**.
+
+Procédures détaillées (vérification des données, monitoring, recovery) : voir [`RUNBOOK.md`](./RUNBOOK.md).
 
 ---
 
-## 6) Sources de données & volumes
+## Traçabilité et idempotence
 
-### Sources externes
-1. **OpenAlex** (API)
-   - publications et métadonnées académiques, pagination `offset/rows`
-2. **data.gov.ma / CKAN** (fichiers/documents)
-   - jeux de données ouvertes (CSV/JSON)
-3. **Sites d'établissements** (web statique)
-   - profils faculty
-   - catalogue de cours
-
-### MinIO buckets (data lake)
-
-Buckets utilisés par le pipeline :
-- `raw-json` — Données structurées JSON
-- `raw-web-html` — Pages HTML brutes
-- `raw-documents` — Fichiers/documents CKAN
-- `raw-logs` — Logs d'ingestion (JSON, par run)
-- Zone **curated** (Hudi) — tables transformées
-
-### Organisation (partitionnement)
-- Objets nommés à partir du hash du contenu (`content_hash[:10-12]`) pour l'idempotence
-- Organisation par date (`year=YYYY/month=MM/day=DD`) selon la source
+- Chaque enregistrement curated porte un `content_hash`, une `source_url` et un `raw_object_path` : traçable jusqu'à l'objet brut d'origine dans MinIO.
+- Les objets MinIO sont nommés d'après le hash de leur contenu → un rerun sans changement de données ne crée pas de doublon.
+- Chaque run d'ingestion écrit un log JSON dans `raw-logs/` (source, volume, erreurs, `ingestion_id`).
+- Hudi gère l'upsert nativement : rejouer un job Spark ne duplique jamais les enregistrements déjà présents.
 
 ---
 
-## 7) Commandes d'exécution (ingestion, transformation)
+## Points d'attention connus
 
-> En production, l'ordre est piloté par le DAG Airflow `university_data_platform_daily`, entièrement séquentiel (choix volontaire pour la stabilité de l'hôte).
-
-### 7.1 Ingestion
-
-```powershell
-python -m src.ingestion.api.Fahd_openalex
-python -m src.ingestion.docs.fahd_datagov
-python -m src.ingestion.web.generic_crawler
-```
-
-### 7.2 Transformation Spark (curated + Hive)
-
-```powershell
-python -m src.transformations.spark.jobs.faculty_profiles_job
-python -m src.transformations.spark.jobs.course_catalog_job
-```
-
-> La transformation lit depuis MinIO puis écrit dans la zone curated (Hudi), crée/rafraîchit les tables Hive `faculty_profiles` et `course_catalog`, et synchronise vers PostgreSQL et Elasticsearch.
-
-### 7.3 Ordre d'exécution du DAG Airflow
-
-```
-run_ingestion_openalex
-        ↓
-run_ingestion_datagov
-        ↓
-run_ingestion_web
-        ↓
-run_faculty_profiles_pipeline
-        ↓
-run_course_catalog_pipeline
-```
-
-### 7.4 Déclenchement manuel (démo)
-
-Depuis l'UI Airflow : `DAGs` → `university_data_platform_daily` → bouton **Trigger DAG**.
+- Le taux de déduplication observé lors des runs de test est élevé (le crawler web revisite parfois les mêmes pages sur plusieurs runs) — piste d'amélioration : affiner la profondeur/fréquence de crawl.
+- L'API de recherche n'est pas encore un service Docker à part entière ; elle se lance manuellement dans le conteneur `airflow-scheduler` (voir RUNBOOK section 5).
+- Metabase reste hors du DAG automatisé : le dashboard se consulte manuellement, pas de refresh programmé.
 
 ---
 
-## 8) Accès aux services (ports & endpoints)
+## Ce que ce projet démontre
 
-| Service | URL | Port |
-|---|---:|---:|
-| **MinIO Console** | http://localhost:9001 | 9001 |
-| **MinIO S3** | http://localhost:9000 | 9000 |
-| **Metabase** | http://localhost:3000 | 3000 |
-| **Airflow Webserver** | http://localhost:8081 | 8081 |
-| **Elasticsearch** | http://localhost:9200 | 9200 |
-| **API de recherche (FastAPI)** | http://localhost:8000 | 8000 |
-| **PostgreSQL (Hive/Metabase)** | — | 5435 |
-
-> ⚠️ Ports indicatifs alignés sur `docker-compose.yml` — à vérifier/ajuster selon ta configuration exacte si elle diffère.
-
----
-
-## 9) Traçabilité et idempotence
-
-- Chaque enregistrement curated et chaque objet raw porte un `content_hash`/`checksum` et un `source_url`/`raw_object_path`, ce qui permet de remonter de n'importe quel résultat (dashboard, recherche) jusqu'à l'objet brut d'origine dans MinIO.
-- Les noms d'objets MinIO sont basés sur le hash du contenu → un rerun sans changement de données ne crée pas de doublon.
-- Chaque run d'ingestion écrit un log JSON dans `raw-logs/` (source, nombre d'enregistrements, erreurs, `ingestion_id`).
-- Les tables Hudi supportent l'upsert : les jobs Spark peuvent être rejoués sans dupliquer les données déjà présentes (`duplicates_dropped` suivi dans les logs de job).
-
----
-
-## 10) Auteurs
-
-- Projet réalisé dans le cadre du challenge **University Data Platform** (Best-of-9 MVP, 3 semaines).
+- Conception d'un pipeline batch reproductible avec orchestration Airflow
+- Ingestion multi-sources hétérogènes avec gestion d'erreurs différenciée (échec critique vs erreur mineure isolée)
+- Architecture lakehouse (raw → curated) avec Hudi et upserts idempotents
+- Conteneurisation complète d'un stack data (Spark + Java dans Airflow, pas juste de l'orchestration légère)
+- Documentation opérationnelle (runbook) pensée pour qu'un tiers puisse reprendre le projet

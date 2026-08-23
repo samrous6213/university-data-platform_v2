@@ -1,3 +1,49 @@
+# ── Ancre YAML : config commune aux 3 services Airflow ──────────────────
+# Evite de dupliquer 15 lignes identiques x3. IMPORTANT : cette cle x-* doit
+# rester au niveau RACINE du fichier (ici, avant "services:"), pas a
+# l'interieur du bloc "services:" -- sinon Compose la traite comme un vrai
+# service a builder/lancer (bug rencontre en pratique : un conteneur
+# fantome "x-airflow-common" apparait dans "docker compose ps").
+#
+# Les variables HIVE_METASTORE_URI / ELASTICSEARCH_HOST /
+# POSTGRES_ANALYTICS_HOST / MINIO_ENDPOINT ci-dessous SURCHARGENT
+# volontairement les defaults localhost/127.0.0.1 de configs/spark_config.py
+# (penses pour l'ancienne execution native Windows) par les noms de service
+# du reseau Docker, maintenant que l'ingestion ET Spark tournent DANS le
+# conteneur Airflow.
+#
+# Le fichier ./.env est monte tel quel (variables OpenAlex/CKAN, cles
+# MinIO, etc.) : load_dotenv() ne redefinit jamais une variable deja
+# presente dans l'environnement (comportement par defaut, override=False),
+# donc les 4 overrides ci-dessous gagnent toujours sur .env, meme si son
+# MINIO_ENDPOINT=127.0.0.1:9000 (correct pour Windows natif) y reste tel quel.
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+  image: university-airflow:latest
+  environment:
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__WEBSERVER__SECRET_KEY: "un_secret_partage_pour_le_mvp_12345"
+    PYTHONPATH: /opt/airflow
+    PYTHONIOENCODING: utf-8
+    HIVE_METASTORE_URI: thrift://hive-metastore:9083
+    ELASTICSEARCH_HOST: elasticsearch
+    ELASTICSEARCH_PORT: "9200"
+    POSTGRES_ANALYTICS_HOST: postgres
+    POSTGRES_ANALYTICS_PORT: "5432"
+    MINIO_ENDPOINT: minio:9000
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./src:/opt/airflow/src
+    - ./configs:/opt/airflow/configs
+    - ./jdbc:/opt/airflow/jdbc
+    - ./logs:/opt/airflow/logs
+    - ./.env:/opt/airflow/.env:ro
+    - airflow_ivy_cache:/home/airflow/.ivy2
+
 services:
 
   minio:
@@ -58,32 +104,6 @@ services:
       - ./jdbc/postgresql-42.7.3.jar:/opt/hive/lib/postgres.jar:ro
       - ./configs/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
       - hive_warehouse:/opt/hive/data/warehouse
-  #hive-server2:
-   # image: apache/hive:4.0.0
-    #container_name: hive-server2
-    #restart: unless-stopped
-    #depends_on:
-    #  - hive-metastore
-    #environment:
-    #  SERVICE_NAME: hiveserver2
-     # IS_RESUME: "true"
-      #HADOOP_CLASSPATH: "/opt/hadoop/share/hadoop/tools/lib/*"
-      # Le fix urandom accélère la génération de sessions en Java et évite le gel du bind TCP
-      #SERVICE_OPTS: >-
-       # -Dhive.metastore.uris=thrift://hive-metastore:9083
-        #-Djava.security.egd=file:/dev/./urandom
-      #AWS_ACCESS_KEY_ID: minioadmin
-      #AWS_SECRET_ACCESS_KEY: minioadmin
-    #ports:
-     # - "10000:10000"
-      #- "10002:10002"
-    #volumes:
-     # - ./jdbc/postgresql-42.7.3.jar:/opt/hive/lib/postgres.jar:ro
-      #- ./configs/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      #- ./configs/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
-      # Monte le dossier de JARs pour que HiveServer2 accède au bundle Hudi (crée le dossier ./jars s'il n'existe pas)
-      #- ./jars:/opt/hive/auxlib:ro
-      #- hive_warehouse:/opt/hive/data/warehouse
 
   spark-master:
     image: apache/spark:3.5.1
@@ -141,16 +161,10 @@ services:
       - "5433:5432"
 
   airflow-init:
-    image: apache/airflow:2.10.0-python3.11
+    <<: *airflow-common
     container_name: airflow-init
     depends_on:
       - airflow-postgres
-    environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      PYTHONPATH: /opt/airflow
-      _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-ssh
-      AIRFLOW__WEBSERVER__SECRET_KEY: "un_secret_partage_pour_le_mvp_12345"
     command: >
       bash -c "
       airflow db migrate &&
@@ -164,45 +178,34 @@ services:
       "
 
   airflow-webserver:
-    image: apache/airflow:2.10.0-python3.11
+    <<: *airflow-common
     container_name: airflow-webserver
     restart: unless-stopped
     depends_on:
       - airflow-postgres
-    environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      PYTHONPATH: /opt/airflow
-      _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-ssh
-      AIRFLOW__WEBSERVER__SECRET_KEY: "un_secret_partage_pour_le_mvp_12345"
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./src:/opt/airflow/src
-      - ./airflow_home/ssh_keys:/opt/airflow/ssh_keys
+      - airflow-init
     command: webserver
     ports:
       - "8081:8080"
 
   airflow-scheduler:
-    image: apache/airflow:2.10.0-python3.11
+    <<: *airflow-common
     container_name: airflow-scheduler
     restart: unless-stopped
     depends_on:
       - airflow-postgres
-    environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      PYTHONPATH: /opt/airflow
-      _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-ssh
-      AIRFLOW__WEBSERVER__SECRET_KEY: "un_secret_partage_pour_le_mvp_12345"
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./src:/opt/airflow/src
-      - ./airflow_home/ssh_keys:/opt/airflow/ssh_keys
+      - airflow-init
     command: scheduler
+    ports:
+      # Permet de lancer manuellement l'API de recherche (uvicorn) DANS ce
+      # conteneur (voir RUNBOOK section 5) : toutes ses dependances
+      # (fastapi, uvicorn, elasticsearch) sont deja dans l'image custom.
+      # Le port reste inactif tant qu'uvicorn n'est pas lance manuellement.
+      - "8000:8000"
 
 volumes:
   minio_data:
   postgres_data:
   elasticsearch_data:
   hive_warehouse:
+  airflow_ivy_cache:
